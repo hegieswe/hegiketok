@@ -118,11 +118,6 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.border),
-      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
         child: Padding(
@@ -141,7 +136,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                     style: TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: 17,
-                        fontWeight: FontWeight.w600),
+                        fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -162,13 +157,15 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                   FilledButton(
                     onPressed: (_selected.isEmpty || _importing) ? null : _import,
                     style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.accent),
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: AppTheme.onAccent,
+                    ),
                     child: _importing
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
+                                strokeWidth: 2, color: AppTheme.onAccent))
                         : Text('Import (${_selected.length})'),
                   ),
                 ],
@@ -197,8 +194,17 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
     if (_error != null) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Text(_error!,
-            style: const TextStyle(color: Color(0xFFFF7B72), fontSize: 13)),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppTheme.danger.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(AppTheme.rSm),
+            border: Border.all(color: AppTheme.danger.withValues(alpha: 0.4)),
+          ),
+          child: Text(_error!,
+              style: TextStyle(color: AppTheme.danger, fontSize: 13)),
+        ),
       );
     }
     if (_entries.isEmpty) {
@@ -242,7 +248,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
           _selected.add(i);
         }
       }),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppTheme.rSm),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         child: Row(
@@ -288,7 +294,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                               horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
                             color: AppTheme.textMuted.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(AppTheme.rPill),
                           ),
                           child: Text('sudah ada',
                               style: TextStyle(

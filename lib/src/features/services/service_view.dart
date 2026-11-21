@@ -2,12 +2,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/ui.dart';
 import 'service_controller.dart';
 import 'service_models.dart';
-
-const _red = Color(0xFFFF7B72);
-const _green = Color(0xFF3FB950);
-const _amber = Color(0xFFD29922);
 
 enum _Filter { all, running, failed }
 
@@ -66,29 +63,41 @@ class _ServiceViewState extends State<ServiceView> {
           );
         }
         if (c.connectError != null && c.snapshot == null) {
-          return _errorState(c.connectError!, c.connect);
+          return PanelMessage(
+            icon: Icons.settings_suggest_outlined,
+            iconColor: AppTheme.warning,
+            title: 'Gagal terhubung',
+            message: c.connectError!,
+            onAction: c.connect,
+          );
         }
         if (c.loading && c.snapshot == null) {
-          return _Centered(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: AppTheme.accent),
+          return Container(
+            color: AppTheme.bg,
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppTheme.accent),
+              ),
             ),
           );
         }
         final snap = c.snapshot!;
         if (snap.error != null && c.services.isEmpty) {
-          return _errorState(snap.error!, c.refresh,
-              icon: Icons.settings_suggest_outlined);
+          return PanelMessage(
+            icon: Icons.settings_suggest_outlined,
+            iconColor: AppTheme.warning,
+            message: snap.error!,
+            onAction: c.refresh,
+          );
         }
         return Container(
           color: AppTheme.bg,
           child: Column(
             children: [
               _header(),
-              Divider(height: 1, color: AppTheme.border),
               _filterBar(),
               Expanded(child: _list()),
             ],
@@ -101,114 +110,58 @@ class _ServiceViewState extends State<ServiceView> {
   Widget _header() {
     final running = c.services.where((s) => s.isRunning).length;
     final failed = c.services.where((s) => s.isFailed).length;
-    return Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: AppTheme.surface,
-      child: Row(
-        children: [
-          Icon(Icons.settings_suggest_outlined,
-              size: 20, color: AppTheme.accent),
-          const SizedBox(width: 10),
-          Text('Services',
-              style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(width: 10),
-          Text(
-            '${c.services.length} unit · $running aktif'
-            '${failed > 0 ? " · $failed gagal" : ""}',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
-          ),
-          const Spacer(),
-          if (c.autoRefresh) _intervalSelector(),
-          const SizedBox(width: 8),
-          _toggleChip(
-              label: 'Auto', active: c.autoRefresh, onTap: c.toggleAutoRefresh),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: c.refreshing ? null : c.refresh,
-            tooltip: 'Perbarui',
-            icon: c.refreshing
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppTheme.accent))
-                : Icon(Icons.refresh, size: 18, color: AppTheme.textMuted),
-          ),
-        ],
-      ),
+    return PanelHeader(
+      icon: Icons.settings_suggest_outlined,
+      title: 'Services',
+      meta: '${c.services.length} unit · $running aktif'
+          '${failed > 0 ? " · $failed gagal" : ""}',
+      actions: [
+        RefreshControls(
+          auto: c.autoRefresh,
+          interval: c.intervalSeconds,
+          onToggleAuto: c.toggleAutoRefresh,
+          onInterval: c.setInterval,
+          onRefresh: c.refresh,
+          busy: c.refreshing,
+          options: const [5, 10, 30, 60],
+        ),
+      ],
     );
   }
 
   Widget _filterBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: AppTheme.bg,
       child: Row(
         children: [
           Expanded(
-            child: SizedBox(
-              height: 34,
-              child: TextField(
-                controller: _searchCtrl,
-                style:
-                    TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-                onChanged: (v) => setState(() => _query = v),
-                decoration: InputDecoration(
-                  isDense: true,
-                  filled: true,
-                  fillColor: AppTheme.surface,
-                  hintText: 'Cari service…',
-                  hintStyle:
-                      TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                  prefixIcon: Icon(Icons.search,
-                      size: 16, color: AppTheme.textMuted),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.accent),
-                  ),
-                ),
-              ),
+            child: SearchField(
+              hint: 'Cari service…',
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _query = v),
             ),
           ),
           const SizedBox(width: 10),
-          _filterChip('Semua', _Filter.all),
+          FilterTab(
+            label: 'Semua',
+            active: _filter == _Filter.all,
+            onTap: () => setState(() => _filter = _Filter.all),
+          ),
           const SizedBox(width: 6),
-          _filterChip('Berjalan', _Filter.running),
+          FilterTab(
+            label: 'Berjalan',
+            active: _filter == _Filter.running,
+            onTap: () => setState(() => _filter = _Filter.running),
+          ),
           const SizedBox(width: 6),
-          _filterChip('Gagal', _Filter.failed),
+          FilterTab(
+            label: 'Gagal',
+            active: _filter == _Filter.failed,
+            onTap: () => setState(() => _filter = _Filter.failed),
+            color: AppTheme.danger,
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, _Filter f) {
-    final active = _filter == f;
-    final isFail = f == _Filter.failed;
-    final color = isFail ? _red : AppTheme.accent;
-    return InkWell(
-      onTap: () => setState(() => _filter = f),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? color : AppTheme.border),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: active ? color : AppTheme.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500)),
       ),
     );
   }
@@ -216,9 +169,9 @@ class _ServiceViewState extends State<ServiceView> {
   Widget _list() {
     final items = _visible();
     if (items.isEmpty) {
-      return _Centered(
-        child: Text('Tidak ada service yang cocok.',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+      return PanelMessage(
+        icon: Icons.inbox_outlined,
+        message: 'Tidak ada service yang cocok.',
       );
     }
     return ListView.builder(
@@ -227,104 +180,6 @@ class _ServiceViewState extends State<ServiceView> {
       itemBuilder: (_, i) => _ServiceCard(service: items[i], controller: c),
     );
   }
-
-  Widget _intervalSelector() {
-    return PopupMenuButton<int>(
-      initialValue: c.intervalSeconds,
-      tooltip: 'Interval refresh',
-      onSelected: c.setInterval,
-      color: AppTheme.surface,
-      itemBuilder: (_) => [5, 10, 30, 60]
-          .map((s) => PopupMenuItem(
-                value: s,
-                child: Text('$s detik',
-                    style: TextStyle(
-                        color: AppTheme.textPrimary, fontSize: 13)),
-              ))
-          .toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.timer_outlined, size: 13, color: AppTheme.textMuted),
-            const SizedBox(width: 5),
-            Text('${c.intervalSeconds}s',
-                style:
-                    TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-            Icon(Icons.arrow_drop_down, size: 16, color: AppTheme.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _toggleChip({
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? _green.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? _green : AppTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(active ? Icons.sync : Icons.sync_disabled,
-                size: 13, color: active ? _green : AppTheme.textMuted),
-            const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    color: active ? _green : AppTheme.textMuted, fontSize: 11)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _errorState(String msg, VoidCallback onRetry,
-      {IconData icon = Icons.error_outline}) {
-    return _Centered(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: _amber, size: 38),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 360,
-            child: Text(msg,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 15),
-            label: const Text('Coba lagi'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Centered extends StatelessWidget {
-  const _Centered({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) =>
-      Container(color: AppTheme.bg, child: Center(child: child));
 }
 
 class _ServiceCard extends StatelessWidget {
@@ -334,9 +189,9 @@ class _ServiceCard extends StatelessWidget {
   final ServiceController controller;
 
   Color get _statusColor {
-    if (service.isFailed) return _red;
-    if (service.isRunning) return _green;
-    if (service.active == 'activating') return _amber;
+    if (service.isFailed) return AppTheme.danger;
+    if (service.isRunning) return AppTheme.success;
+    if (service.active == 'activating') return AppTheme.warning;
     return AppTheme.textMuted;
   }
 
@@ -344,7 +199,7 @@ class _ServiceCard extends StatelessWidget {
     final err = await controller.action(act, service);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      backgroundColor: err == null ? _green : _red,
+      backgroundColor: err == null ? AppTheme.success : AppTheme.danger,
       duration: const Duration(seconds: 2),
       content: Text(err ?? '$verb: ${service.name}',
           style: const TextStyle(color: Colors.white)),
@@ -354,28 +209,18 @@ class _ServiceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = service;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: s.isFailed ? _red.withValues(alpha: 0.5) : AppTheme.border),
-      ),
+    return AppCard(
+      danger: s.isFailed,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 9,
-                height: 9,
-                margin: const EdgeInsets.only(top: 2),
-                decoration:
-                    BoxDecoration(color: _statusColor, shape: BoxShape.circle),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: StatusDot(_statusColor),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,11 +237,14 @@ class _ServiceCard extends StatelessWidget {
                         ),
                         if (s.enabledState != null) ...[
                           const SizedBox(width: 8),
-                          _enabledBadge(s),
+                          Pill(s.enabledState!,
+                              color: s.isEnabled
+                                  ? AppTheme.success
+                                  : AppTheme.textMuted),
                         ],
                       ],
                     ),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 2),
                     Text(
                       s.description.isEmpty
                           ? '${s.active} · ${s.sub}'
@@ -408,31 +256,44 @@ class _ServiceCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _statePill(s),
+              const SizedBox(width: 8),
+              Pill('${s.active} (${s.sub})', color: _statusColor),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
             children: [
               if (s.isActive) ...[
-                _action(context, Icons.stop, 'Stop',
-                    () => _run(context, 'stop', 'Dihentikan')),
-                _action(context, Icons.restart_alt, 'Restart',
-                    () => _run(context, 'restart', 'Direstart')),
+                ToolButton(
+                    icon: Icons.stop_rounded,
+                    label: 'Stop',
+                    onTap: () => _run(context, 'stop', 'Dihentikan')),
+                ToolButton(
+                    icon: Icons.restart_alt_rounded,
+                    label: 'Restart',
+                    onTap: () => _run(context, 'restart', 'Direstart')),
               ] else
-                _action(context, Icons.play_arrow, 'Start',
-                    () => _run(context, 'start', 'Dijalankan'),
-                    color: _green),
-              _action(context, Icons.article_outlined, 'Logs',
-                  () => _showLogs(context)),
+                ToolButton(
+                    icon: Icons.play_arrow_rounded,
+                    label: 'Start',
+                    color: AppTheme.success,
+                    onTap: () => _run(context, 'start', 'Dijalankan')),
+              ToolButton(
+                  icon: Icons.article_outlined,
+                  label: 'Logs',
+                  onTap: () => _showLogs(context)),
               const Spacer(),
               if (s.canToggleEnable)
                 s.isEnabled
-                    ? _action(context, Icons.link_off, 'Disable',
-                        () => _run(context, 'disable', 'Di-disable'))
-                    : _action(context, Icons.link, 'Enable',
-                        () => _run(context, 'enable', 'Di-enable'),
-                        color: AppTheme.accent),
+                    ? ToolButton(
+                        icon: Icons.link_off_rounded,
+                        label: 'Disable',
+                        onTap: () => _run(context, 'disable', 'Di-disable'))
+                    : ToolButton(
+                        icon: Icons.link_rounded,
+                        label: 'Enable',
+                        color: AppTheme.accent,
+                        onTap: () => _run(context, 'enable', 'Di-enable')),
             ],
           ),
         ],
@@ -440,65 +301,10 @@ class _ServiceCard extends StatelessWidget {
     );
   }
 
-  Widget _enabledBadge(SystemdService s) {
-    final enabled = s.isEnabled;
-    final color = enabled ? _green : AppTheme.textMuted;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(s.enabledState!,
-          style: TextStyle(color: color, fontSize: 10)),
-    );
-  }
-
-  Widget _statePill(SystemdService s) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text('${s.active} (${s.sub})',
-          style: TextStyle(
-              color: _statusColor, fontSize: 11, fontWeight: FontWeight.w600)),
-    );
-  }
-
   void _showLogs(BuildContext context) {
     showDialog(
       context: context,
       builder: (_) => _LogsDialog(controller: controller, service: service),
-    );
-  }
-
-  Widget _action(BuildContext context, IconData icon, String label,
-      VoidCallback onTap,
-      {Color? color}) {
-    color ??= AppTheme.textMuted;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(7),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(7),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 5),
-              Text(label, style: TextStyle(color: color, fontSize: 12)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -536,11 +342,6 @@ class _LogsDialogState extends State<_LogsDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.border),
-      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760, maxHeight: 560),
         child: Column(
@@ -550,8 +351,7 @@ class _LogsDialogState extends State<_LogsDialog> {
               padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
               child: Row(
                 children: [
-                  Icon(Icons.article_outlined,
-                      size: 18, color: AppTheme.accent),
+                  Icon(Icons.article_outlined, size: 18, color: AppTheme.accent),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text('Logs · ${widget.service.name}',
@@ -559,12 +359,12 @@ class _LogsDialogState extends State<_LogsDialog> {
                         style: TextStyle(
                             color: AppTheme.textPrimary,
                             fontSize: 15,
-                            fontWeight: FontWeight.w600)),
+                            fontWeight: FontWeight.w700)),
                   ),
                   PopupMenuButton<int>(
                     initialValue: _lines,
                     tooltip: 'Jumlah baris',
-                    color: AppTheme.surface,
+                    position: PopupMenuPosition.under,
                     onSelected: (v) {
                       _lines = v;
                       _load();
@@ -572,16 +372,16 @@ class _LogsDialogState extends State<_LogsDialog> {
                     itemBuilder: (_) => [100, 200, 500, 1000]
                         .map((v) => PopupMenuItem(
                             value: v,
+                            height: 38,
                             child: Text('$v baris',
                                 style: TextStyle(
-                                    color: AppTheme.textPrimary,
-                                    fontSize: 13))))
+                                    color: AppTheme.textPrimary, fontSize: 13))))
                         .toList(),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppTheme.rSm),
                         border: Border.all(color: AppTheme.border),
                       ),
                       child: Text('$_lines baris',
@@ -589,17 +389,13 @@ class _LogsDialogState extends State<_LogsDialog> {
                               color: AppTheme.textMuted, fontSize: 12)),
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.refresh,
-                        size: 18, color: AppTheme.textMuted),
-                    tooltip: 'Muat ulang',
-                    onPressed: _load,
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close,
-                        size: 18, color: AppTheme.textMuted),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                  GhostIconButton(
+                      icon: Icons.refresh_rounded,
+                      tooltip: 'Muat ulang',
+                      onTap: _load),
+                  GhostIconButton(
+                      icon: Icons.close_rounded,
+                      onTap: () => Navigator.pop(context)),
                 ],
               ),
             ),
@@ -627,7 +423,7 @@ class _LogsDialogState extends State<_LogsDialog> {
                               color: AppTheme.textPrimary,
                               fontSize: 12,
                               fontFamily: 'Menlo',
-                              height: 1.4),
+                              height: 1.45),
                         ),
                       ),
                     ),

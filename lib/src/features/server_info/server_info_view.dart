@@ -3,18 +3,15 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/ui.dart';
 import '../settings/settings_providers.dart';
 import 'server_alerts.dart';
 import 'server_info.dart';
 import 'server_info_controller.dart';
 
-const _red = Color(0xFFFF7B72);
-const _amber = Color(0xFFD29922);
-const _purple = Color(0xFFBC8CFF);
-
 Color _usageColor(double pct) {
-  if (pct >= 90) return _red;
-  if (pct >= 70) return _amber;
+  if (pct >= 90) return AppTheme.danger;
+  if (pct >= 70) return AppTheme.warning;
   return AppTheme.success;
 }
 
@@ -24,6 +21,26 @@ String _kb(int kb) {
   final gb = mb / 1024;
   if (gb < 1024) return '${gb.toStringAsFixed(gb < 10 ? 1 : 0)} GB';
   return '${(gb / 1024).toStringAsFixed(1)} TB';
+}
+
+/// Container permukaan standar (dengan bayangan lembut di mode terang).
+Widget _panel({
+  double? width,
+  required Widget child,
+  EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+}) {
+  final p = AppTheme.current;
+  return Container(
+    width: width,
+    padding: padding,
+    decoration: BoxDecoration(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(AppTheme.rLg),
+      border: Border.all(color: AppTheme.border),
+      boxShadow: p.isDark ? null : AppTheme.softShadow(p),
+    ),
+    child: child,
+  );
 }
 
 /// Dashboard informasi server: CPU, memory, disk, jaringan, proses, dll.
@@ -45,40 +62,25 @@ class ServerInfoView extends StatelessWidget {
           );
         }
         if (c.loading && c.info == null && c.error == null) {
-          return _Centered(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: AppTheme.accent),
-                ),
-                SizedBox(height: 14),
-                Text('Mengambil informasi server…',
-                    style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-              ],
+          return Container(
+            color: AppTheme.bg,
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppTheme.accent),
+              ),
             ),
           );
         }
         if (c.error != null && c.info == null) {
-          return _Centered(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, color: _red, size: 36),
-                const SizedBox(height: 12),
-                Text(c.error!,
-                    style: const TextStyle(color: _red, fontSize: 13)),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: c.connect,
-                  icon: const Icon(Icons.refresh, size: 15),
-                  label: const Text('Coba lagi'),
-                ),
-              ],
-            ),
+          return PanelMessage(
+            icon: Icons.error_outline,
+            iconColor: AppTheme.danger,
+            title: 'Gagal mengambil info',
+            message: c.error!,
+            onAction: c.connect,
           );
         }
         return _Dashboard(controller: c);
@@ -87,15 +89,7 @@ class ServerInfoView extends StatelessWidget {
   }
 }
 
-class _Centered extends StatelessWidget {
-  const _Centered({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) =>
-      Container(color: AppTheme.bg, child: Center(child: child));
-}
-
-/// Banner merah daftar peringatan ambang yang terlampaui.
+/// Banner daftar peringatan ambang yang terlampaui.
 class _AlertsBanner extends StatelessWidget {
   const _AlertsBanner({required this.alerts});
   final List<ServerAlert> alerts;
@@ -106,25 +100,27 @@ class _AlertsBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _red.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _red.withValues(alpha: 0.5)),
+        color: AppTheme.danger.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppTheme.rLg),
+        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.warning_amber_rounded, size: 18, color: _red),
+              Icon(Icons.warning_amber_rounded, size: 18, color: AppTheme.danger),
               const SizedBox(width: 8),
               Text(
                 '${alerts.length} peringatan ambang terlampaui',
-                style: const TextStyle(
-                    color: _red, fontSize: 13, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    color: AppTheme.danger,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 6,
@@ -134,13 +130,13 @@ class _AlertsBanner extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: AppTheme.bg,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _red.withValues(alpha: 0.4)),
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(AppTheme.rSm),
+                    border:
+                        Border.all(color: AppTheme.danger.withValues(alpha: 0.4)),
                   ),
                   child: Text(a.message,
-                      style:
-                          const TextStyle(color: _red, fontSize: 12)),
+                      style: TextStyle(color: AppTheme.danger, fontSize: 12)),
                 ),
             ],
           ),
@@ -166,14 +162,13 @@ class _ThresholdDialog extends ConsumerWidget {
           Row(
             children: [
               Text(label,
-                  style: TextStyle(
-                      color: AppTheme.textPrimary, fontSize: 13)),
+                  style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
               const Spacer(),
               Text('${value.toStringAsFixed(0)}%',
                   style: TextStyle(
                       color: AppTheme.accent,
                       fontSize: 13,
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: FontWeight.w700)),
             ],
           ),
           Slider(
@@ -181,7 +176,6 @@ class _ThresholdDialog extends ConsumerWidget {
             min: 50,
             max: 99,
             divisions: 49,
-            activeColor: AppTheme.accent,
             onChanged: onChanged,
           ),
         ],
@@ -189,11 +183,6 @@ class _ThresholdDialog extends ConsumerWidget {
     }
 
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.border),
-      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -204,14 +193,14 @@ class _ThresholdDialog extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.notifications_active,
+                  Icon(Icons.notifications_active_rounded,
                       size: 20, color: AppTheme.accent),
                   const SizedBox(width: 8),
                   Text('Ambang Peringatan',
                       style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontSize: 17,
-                          fontWeight: FontWeight.w600)),
+                          fontWeight: FontWeight.w700)),
                 ],
               ),
               const SizedBox(height: 6),
@@ -228,8 +217,9 @@ class _ThresholdDialog extends ConsumerWidget {
                 alignment: Alignment.centerRight,
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  style:
-                      FilledButton.styleFrom(backgroundColor: AppTheme.accent),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: AppTheme.onAccent),
                   child: const Text('Selesai'),
                 ),
               ),
@@ -274,7 +264,7 @@ class _Dashboard extends ConsumerWidget {
               _MemoryCard(info),
               if (info.swapTotalKb > 0)
                 _SimpleMeter(
-                  icon: Icons.swap_horiz,
+                  icon: Icons.swap_horiz_rounded,
                   title: 'Swap',
                   percent: info.swapPercent,
                   subtitle:
@@ -282,55 +272,55 @@ class _Dashboard extends ConsumerWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 22),
-          _sectionTitle('Sistem'),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
+          const SectionLabel('Sistem'),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
               _InfoTile(Icons.dns_outlined, 'Hostname', info.hostname),
-              _InfoTile(Icons.terminal, 'OS', info.os),
+              _InfoTile(Icons.terminal_rounded, 'OS', info.os),
               _InfoTile(Icons.settings_suggest_outlined, 'Kernel', info.kernel),
-              _InfoTile(Icons.schedule, 'Uptime', info.uptime),
+              _InfoTile(Icons.schedule_rounded, 'Uptime', info.uptime),
               _InfoTile(
-                  Icons.developer_board,
+                  Icons.developer_board_rounded,
                   'CPU',
                   info.cpuModel.isEmpty
                       ? '${info.cpuCores} core'
                       : info.cpuModel),
               _InfoTile(
-                  Icons.show_chart,
+                  Icons.show_chart_rounded,
                   'Load (1·5·15m)',
                   info.loadAvg.isEmpty
                       ? '-'
                       : info.loadAvg
                           .map((e) => e.toStringAsFixed(2))
                           .join('  ')),
-              _InfoTile(Icons.people_outline, 'Users login',
+              _InfoTile(Icons.people_outline_rounded, 'Users login',
                   '${info.usersLoggedIn}'),
               _InfoTile(Icons.account_tree_outlined, 'Processes',
                   '${info.processes}'),
             ],
           ),
-          const SizedBox(height: 22),
-          _sectionTitle('Proses'),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
+          const SectionLabel('Proses'),
+          const SizedBox(height: 12),
           _ProcessTable(
             procs: info.topProcesses,
             onKill: controller.killProcess,
           ),
-          const SizedBox(height: 22),
-          _sectionTitle('Penyimpanan'),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
+          const SectionLabel('Penyimpanan'),
+          const SizedBox(height: 12),
           if (info.disks.isEmpty)
             Text('Tidak ada data disk.',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 13))
           else
             ...info.disks.map((d) => _DiskRow(d)),
-          const SizedBox(height: 22),
-          _sectionTitle('Jaringan'),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
+          const SectionLabel('Jaringan'),
+          const SizedBox(height: 12),
           if (info.networks.isEmpty)
             Text('Tidak ada interface.',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 13))
@@ -348,24 +338,18 @@ class _Dashboard extends ConsumerWidget {
   Widget _header(
       BuildContext context, WidgetRef ref, ServerInfo info, int alertCount) {
     final c = controller;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-      ),
+    return _panel(
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: AppTheme.accent.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+              color: AppTheme.accentSoft,
+              borderRadius: BorderRadius.circular(AppTheme.rMd),
             ),
             child: Icon(Icons.monitor_heart_outlined,
-                color: AppTheme.accent, size: 22),
+                color: AppTheme.accent, size: 23),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -374,6 +358,7 @@ class _Dashboard extends ConsumerWidget {
               children: [
                 Text(
                   info.hostname.isEmpty ? c.credentials.host : info.hostname,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: 18,
@@ -382,155 +367,66 @@ class _Dashboard extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${info.os.isEmpty ? "" : "${info.os} · "}${c.credentials.username}@${c.credentials.host}:${c.credentials.port}',
-                  style: TextStyle(
-                      color: AppTheme.textMuted, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => _showThresholdDialog(context, ref),
-            tooltip: 'Ambang peringatan',
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  alertCount > 0
-                      ? Icons.notifications_active
-                      : Icons.notifications_outlined,
-                  size: 18,
-                  color: alertCount > 0 ? _red : AppTheme.textMuted,
-                ),
-                if (alertCount > 0)
-                  Positioned(
-                    right: -4,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration:
-                          const BoxDecoration(color: _red, shape: BoxShape.circle),
-                      constraints:
-                          const BoxConstraints(minWidth: 14, minHeight: 14),
-                      child: Text('$alertCount',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700)),
-                    ),
-                  ),
-              ],
-            ),
-          ),
           const SizedBox(width: 8),
-          if (c.autoRefresh) _intervalSelector(c),
-          const SizedBox(width: 8),
-          _toggleChip(
-            label: 'Auto',
-            active: c.autoRefresh,
-            onTap: c.toggleAutoRefresh,
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: c.refreshing ? null : c.refresh,
-            tooltip: 'Perbarui',
-            icon: c.refreshing
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppTheme.accent))
-                : Icon(Icons.refresh,
-                    size: 18, color: AppTheme.textMuted),
+          _alertBell(context, ref, alertCount),
+          const SizedBox(width: 4),
+          RefreshControls(
+            auto: c.autoRefresh,
+            interval: c.intervalSeconds,
+            onToggleAuto: c.toggleAutoRefresh,
+            onInterval: c.setInterval,
+            onRefresh: c.refresh,
+            busy: c.refreshing,
           ),
         ],
       ),
     );
   }
 
-  void _showThresholdDialog(BuildContext context, WidgetRef ref) {
-    showDialog(context: context, builder: (_) => const _ThresholdDialog());
-  }
-
-  Widget _intervalSelector(ServerInfoController c) {
-    return PopupMenuButton<int>(
-      initialValue: c.intervalSeconds,
-      tooltip: 'Interval refresh',
-      onSelected: c.setInterval,
-      color: AppTheme.surface,
-      itemBuilder: (_) => [2, 5, 10, 30, 60]
-          .map((s) => PopupMenuItem(
-                value: s,
-                child: Text('$s detik',
-                    style: TextStyle(
-                        color: AppTheme.textPrimary, fontSize: 13)),
-              ))
-          .toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.timer_outlined,
-                size: 13, color: AppTheme.textMuted),
-            const SizedBox(width: 5),
-            Text('${c.intervalSeconds}s',
-                style: TextStyle(
-                    color: AppTheme.textMuted, fontSize: 12)),
-            Icon(Icons.arrow_drop_down,
-                size: 16, color: AppTheme.textMuted),
-          ],
-        ),
+  Widget _alertBell(BuildContext context, WidgetRef ref, int alertCount) {
+    return IconButton(
+      onPressed: () =>
+          showDialog(context: context, builder: (_) => const _ThresholdDialog()),
+      tooltip: 'Ambang peringatan',
+      visualDensity: VisualDensity.compact,
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            alertCount > 0
+                ? Icons.notifications_active_rounded
+                : Icons.notifications_none_rounded,
+            size: 19,
+            color: alertCount > 0 ? AppTheme.danger : AppTheme.textMuted,
+          ),
+          if (alertCount > 0)
+            Positioned(
+              right: -3,
+              top: -3,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration:
+                    BoxDecoration(color: AppTheme.danger, shape: BoxShape.circle),
+                constraints:
+                    const BoxConstraints(minWidth: 14, minHeight: 14),
+                child: Text('$alertCount',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ),
+        ],
       ),
     );
   }
-
-  Widget _toggleChip({
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active
-              ? AppTheme.success.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border:
-              Border.all(color: active ? AppTheme.success : AppTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(active ? Icons.sync : Icons.sync_disabled,
-                size: 13,
-                color: active ? AppTheme.success : AppTheme.textMuted),
-            const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    color: active ? AppTheme.success : AppTheme.textMuted,
-                    fontSize: 11)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String t) => Text(
-        t,
-        style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w600),
-      );
 }
 
 // ---------------- CPU card ----------------
@@ -543,20 +439,14 @@ class _CpuCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _usageColor(info.cpuUsage);
     final bd = info.cpuBreakdown;
-    return Container(
+    return _panel(
       width: 340,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.memory, size: 16, color: AppTheme.textMuted),
+              Icon(Icons.memory_rounded, size: 16, color: AppTheme.textMuted),
               const SizedBox(width: 6),
               Text('CPU',
                   style: TextStyle(
@@ -565,11 +455,10 @@ class _CpuCard extends StatelessWidget {
                       fontWeight: FontWeight.w600)),
               const SizedBox(width: 8),
               Text('${info.cpuCores} core',
-                  style: TextStyle(
-                      color: AppTheme.textMuted, fontSize: 11)),
+                  style: TextStyle(color: AppTheme.textFaint, fontSize: 11)),
               const Spacer(),
               if (info.cpuTemp != null) ...[
-                Icon(Icons.thermostat,
+                Icon(Icons.thermostat_rounded,
                     size: 14, color: _usageColor(info.cpuTemp!)),
                 const SizedBox(width: 2),
                 Text('${info.cpuTemp!.toStringAsFixed(0)}°C',
@@ -586,33 +475,28 @@ class _CpuCard extends StatelessWidget {
                       fontWeight: FontWeight.w700)),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: (info.cpuUsage / 100).clamp(0, 1),
-              minHeight: 8,
-              backgroundColor: AppTheme.bg,
-              valueColor: AlwaysStoppedAnimation(color),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Breakdown
+          const SizedBox(height: 12),
+          _bar(info.cpuUsage / 100, color),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 12,
             runSpacing: 4,
             children: [
               _legend('usr', bd.user, AppTheme.accent),
-              _legend('sys', bd.system, _purple),
-              _legend('io', bd.iowait, _amber),
-              _legend('steal', bd.steal, _red),
+              _legend('sys', bd.system, AppTheme.violet),
+              _legend('io', bd.iowait, AppTheme.warning),
+              _legend('steal', bd.steal, AppTheme.danger),
             ],
           ),
           if (info.perCore.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text('Per-core',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 10.5)),
-            const SizedBox(height: 6),
+            const SizedBox(height: 14),
+            Text('PER-CORE',
+                style: TextStyle(
+                    color: AppTheme.textFaint,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8)),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -634,14 +518,26 @@ class _CpuCard extends StatelessWidget {
         Container(
             width: 8,
             height: 8,
-            decoration:
-                BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 5),
         Text('$label ${pct.toStringAsFixed(0)}%',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
       ],
     );
   }
+}
+
+Widget _bar(double value, Color color) {
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(AppTheme.rPill),
+    child: LinearProgressIndicator(
+      value: value.clamp(0, 1),
+      minHeight: 8,
+      backgroundColor: AppTheme.surfaceInput,
+      valueColor: AlwaysStoppedAnimation(color),
+    ),
+  );
 }
 
 class _CoreBar extends StatelessWidget {
@@ -659,18 +555,17 @@ class _CoreBar extends StatelessWidget {
         child: Column(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(AppTheme.rPill),
               child: LinearProgressIndicator(
                 value: (percent / 100).clamp(0, 1),
                 minHeight: 6,
-                backgroundColor: AppTheme.bg,
+                backgroundColor: AppTheme.surfaceInput,
                 valueColor: AlwaysStoppedAnimation(color),
               ),
             ),
             const SizedBox(height: 2),
             Text('$index',
-                style:
-                    TextStyle(color: AppTheme.textMuted, fontSize: 9)),
+                style: TextStyle(color: AppTheme.textFaint, fontSize: 9)),
           ],
         ),
       ),
@@ -691,14 +586,8 @@ class _MemoryCard extends StatelessWidget {
     final usedF = info.memUsedKb / total;
     final cacheF = info.memCacheKb / total;
     final freeF = (1 - usedF - cacheF).clamp(0.0, 1.0);
-    return Container(
+    return _panel(
       width: 300,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -720,10 +609,9 @@ class _MemoryCard extends StatelessWidget {
                       fontWeight: FontWeight.w700)),
             ],
           ),
-          const SizedBox(height: 10),
-          // Stacked bar: used | cache | free
+          const SizedBox(height: 12),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(AppTheme.rPill),
             child: SizedBox(
               height: 8,
               child: Row(
@@ -733,23 +621,22 @@ class _MemoryCard extends StatelessWidget {
                       child: Container(color: color)),
                   Expanded(
                       flex: (cacheF * 1000).round().clamp(0, 1000),
-                      child: Container(
-                          color: color.withValues(alpha: 0.35))),
+                      child: Container(color: color.withValues(alpha: 0.35))),
                   Expanded(
                       flex: (freeF * 1000).round().clamp(0, 1000),
-                      child: Container(color: AppTheme.bg)),
+                      child: Container(color: AppTheme.surfaceInput)),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 12,
             runSpacing: 4,
             children: [
               _legend('Used', info.memUsedKb, color),
               _legend('Cache', info.memCacheKb, color.withValues(alpha: 0.5)),
-              _legend('Free', info.memFreeKb, AppTheme.textMuted),
+              _legend('Free', info.memFreeKb, AppTheme.textFaint),
             ],
           ),
           const SizedBox(height: 8),
@@ -795,14 +682,8 @@ class _SimpleMeter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _usageColor(percent);
-    return Container(
+    return _panel(
       width: 220,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -823,16 +704,8 @@ class _SimpleMeter extends StatelessWidget {
                       fontWeight: FontWeight.w700)),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: (percent / 100).clamp(0, 1),
-              minHeight: 8,
-              backgroundColor: AppTheme.bg,
-              valueColor: AlwaysStoppedAnimation(color),
-            ),
-          ),
+          const SizedBox(height: 12),
+          _bar(percent / 100, color),
           const SizedBox(height: 8),
           Text(subtitle,
               style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
@@ -852,14 +725,9 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return _panel(
       width: 250,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border),
-      ),
       child: Row(
         children: [
           Icon(icon, size: 16, color: AppTheme.accent),
@@ -869,8 +737,7 @@ class _InfoTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: TextStyle(
-                        color: AppTheme.textMuted, fontSize: 11)),
+                    style: TextStyle(color: AppTheme.textFaint, fontSize: 11)),
                 const SizedBox(height: 1),
                 Text(
                   value.isEmpty ? '-' : value,
@@ -896,55 +763,43 @@ class _DiskRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _usageColor(disk.usePercent.toDouble());
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.storage, size: 15, color: AppTheme.textMuted),
-              const SizedBox(width: 8),
-              Text(disk.mount,
-                  style: TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(disk.filesystem,
-                    overflow: TextOverflow.ellipsis,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: _panel(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.storage_rounded, size: 15, color: AppTheme.textMuted),
+                const SizedBox(width: 8),
+                Text(disk.mount,
                     style: TextStyle(
-                        color: AppTheme.textMuted, fontSize: 11)),
-              ),
-              Text('${disk.usePercent}%',
-                  style: TextStyle(
-                      color: color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700)),
-            ],
-          ),
-          const SizedBox(height: 9),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: (disk.usePercent / 100).clamp(0, 1),
-              minHeight: 7,
-              backgroundColor: AppTheme.bg,
-              valueColor: AlwaysStoppedAnimation(color),
+                        color: AppTheme.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(disk.filesystem,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppTheme.textFaint, fontSize: 11)),
+                ),
+                Text('${disk.usePercent}%',
+                    style: TextStyle(
+                        color: color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+              ],
             ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-              '${_kb(disk.usedKb)} terpakai · ${_kb(disk.availKb)} bebas · total ${_kb(disk.sizeKb)}',
-              style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
-        ],
+            const SizedBox(height: 10),
+            _bar(disk.usePercent / 100, color),
+            const SizedBox(height: 8),
+            Text(
+                '${_kb(disk.usedKb)} terpakai · ${_kb(disk.availKb)} bebas · total ${_kb(disk.sizeKb)}',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+          ],
+        ),
       ),
     );
   }
@@ -956,13 +811,8 @@ class _NetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return _panel(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border),
-      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1036,7 +886,6 @@ class _ProcessTableState extends State<_ProcessTable> {
     final choice = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.surface,
         title: Text('Hentikan proses?',
             style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
         content: Text(
@@ -1046,17 +895,15 @@ class _ProcessTableState extends State<_ProcessTable> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Batal',
-                style: TextStyle(color: AppTheme.textMuted)),
+            child: Text('Batal', style: TextStyle(color: AppTheme.textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, 'term'),
-            child: const Text('Kill (TERM)',
-                style: TextStyle(color: _amber)),
+            child: Text('Kill (TERM)', style: TextStyle(color: AppTheme.warning)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, 'force'),
-            style: FilledButton.styleFrom(backgroundColor: _red),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
             child: const Text('Force (-9)'),
           ),
         ],
@@ -1067,7 +914,7 @@ class _ProcessTableState extends State<_ProcessTable> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: err == null ? AppTheme.success : _red,
+        backgroundColor: err == null ? AppTheme.success : AppTheme.danger,
         duration: const Duration(seconds: 2),
         content: Text(
           err ?? 'Proses ${p.pid} dihentikan.',
@@ -1088,33 +935,31 @@ class _ProcessTableState extends State<_ProcessTable> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _toolbar(),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.border),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              _headerRow(),
-              if (rows.isEmpty)
-                Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('Tidak ada proses cocok.',
-                      style: TextStyle(
-                          color: AppTheme.textMuted, fontSize: 12)),
-                )
-              else
-                for (var i = 0; i < rows.length; i++)
-                  _dataRow(rows[i], alt: i.isOdd),
-            ],
+        const SizedBox(height: 12),
+        _panel(
+          padding: EdgeInsets.zero,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.rLg),
+            child: Column(
+              children: [
+                _headerRow(),
+                if (rows.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Tidak ada proses cocok.',
+                        style:
+                            TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                  )
+                else
+                  for (var i = 0; i < rows.length; i++)
+                    _dataRow(rows[i], alt: i.isOdd),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 6),
         Text('Menampilkan ${rows.length} dari ${widget.procs.length} proses',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+            style: TextStyle(color: AppTheme.textFaint, fontSize: 11)),
       ],
     );
   }
@@ -1123,87 +968,51 @@ class _ProcessTableState extends State<_ProcessTable> {
     return Row(
       children: [
         SizedBox(
-          width: 220,
-          height: 34,
-          child: TextField(
+          width: 240,
+          child: SearchField(
+            hint: 'Cari nama / user / PID…',
             onChanged: (v) => setState(() => _query = v),
-            style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-            decoration: InputDecoration(
-              hintText: 'Cari nama / user / PID…',
-              hintStyle:
-                  TextStyle(color: AppTheme.textMuted, fontSize: 12.5),
-              isDense: true,
-              filled: true,
-              fillColor: AppTheme.surface,
-              prefixIcon: Icon(Icons.search,
-                  size: 15, color: AppTheme.textMuted),
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppTheme.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppTheme.accent),
-              ),
-            ),
           ),
         ),
         const SizedBox(width: 14),
         Text('Urutkan:',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
         const SizedBox(width: 8),
-        _sortChip('CPU', _ProcSort.cpu),
-        const SizedBox(width: 8),
-        _sortChip('Memory', _ProcSort.mem),
+        FilterTab(
+            label: 'CPU',
+            active: _key == _ProcSort.cpu,
+            onTap: () => _sortBy(_ProcSort.cpu)),
+        const SizedBox(width: 6),
+        FilterTab(
+            label: 'Memory',
+            active: _key == _ProcSort.mem,
+            onTap: () => _sortBy(_ProcSort.mem)),
         const Spacer(),
-        InkWell(
+        GestureDetector(
           onTap: () => setState(() => _desc = !_desc),
-          borderRadius: BorderRadius.circular(8),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
               border: Border.all(color: AppTheme.border),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(_desc ? Icons.arrow_downward : Icons.arrow_upward,
-                    size: 13, color: AppTheme.textMuted),
+                Icon(
+                    _desc
+                        ? Icons.arrow_downward_rounded
+                        : Icons.arrow_upward_rounded,
+                    size: 13,
+                    color: AppTheme.textMuted),
                 const SizedBox(width: 5),
                 Text(_desc ? 'Tertinggi' : 'Terendah',
-                    style: TextStyle(
-                        color: AppTheme.textMuted, fontSize: 12)),
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
               ],
             ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _sortChip(String label, _ProcSort k) {
-    final active = _key == k;
-    return InkWell(
-      onTap: () => _sortBy(k),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active
-              ? AppTheme.accent.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? AppTheme.accent : AppTheme.border),
-        ),
-        child: Text(label,
-            style: TextStyle(
-              color: active ? AppTheme.accent : AppTheme.textMuted,
-              fontSize: 12,
-              fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-            )),
-      ),
     );
   }
 
@@ -1224,8 +1033,12 @@ class _ProcessTableState extends State<_ProcessTable> {
                     fontWeight: FontWeight.w700,
                   )),
               if (active)
-                Icon(_desc ? Icons.arrow_drop_down : Icons.arrow_drop_up,
-                    size: 14, color: AppTheme.accent),
+                Icon(
+                    _desc
+                        ? Icons.arrow_drop_down
+                        : Icons.arrow_drop_up,
+                    size: 14,
+                    color: AppTheme.accent),
             ],
           ),
         ),
@@ -1233,15 +1046,15 @@ class _ProcessTableState extends State<_ProcessTable> {
     }
 
     final headStyle = TextStyle(
-      color: AppTheme.textMuted,
+      color: AppTheme.textFaint,
       fontSize: 11,
       fontFamily: 'Menlo',
       fontWeight: FontWeight.w700,
     );
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: AppTheme.bg,
+        color: AppTheme.surfaceInput,
         border: Border(bottom: BorderSide(color: AppTheme.border)),
       ),
       child: Row(
@@ -1261,9 +1074,9 @@ class _ProcessTableState extends State<_ProcessTable> {
     final base = TextStyle(
         color: AppTheme.textPrimary, fontSize: 12.5, fontFamily: 'Menlo');
     Color heat(double v) => v >= 50
-        ? _red
+        ? AppTheme.danger
         : v >= 15
-            ? _amber
+            ? AppTheme.warning
             : AppTheme.textPrimary;
     return _HoverKillRow(
       alt: alt,
@@ -1316,9 +1129,11 @@ class _HoverKillRowState extends State<_HoverKillRow> {
       onExit: (_) => setState(() => _hover = false),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        color: widget.alt
-            ? AppTheme.bg.withValues(alpha: 0.4)
-            : Colors.transparent,
+        color: _hover
+            ? AppTheme.surfaceInput
+            : (widget.alt
+                ? AppTheme.surfaceInput.withValues(alpha: 0.4)
+                : Colors.transparent),
         child: Row(
           children: [
             Expanded(child: widget.child),
@@ -1326,8 +1141,8 @@ class _HoverKillRowState extends State<_HoverKillRow> {
               width: 32,
               child: _hover
                   ? IconButton(
-                      icon: const Icon(Icons.stop_circle_outlined,
-                          size: 16, color: _red),
+                      icon: Icon(Icons.stop_circle_outlined,
+                          size: 16, color: AppTheme.danger),
                       tooltip: 'Hentikan proses',
                       padding: EdgeInsets.zero,
                       constraints:

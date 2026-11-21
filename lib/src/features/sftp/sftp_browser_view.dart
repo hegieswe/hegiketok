@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/ui.dart';
 import 'sftp_browser_controller.dart';
 
 /// UI browser file SFTP: navigasi direktori remote + unduh/unggah/hapus.
@@ -74,8 +75,7 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF7B72)),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
             child: const Text('Hapus'),
           ),
         ],
@@ -122,7 +122,14 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
       builder: (context, _) {
         // Sebelum terhubung: tampilkan handshake stepper (atau error + retry).
         if (!c.connected) {
-          if (c.error != null) return _connectError();
+          if (c.error != null) {
+            return PanelMessage(
+              icon: Icons.error_outline,
+              iconColor: AppTheme.danger,
+              message: c.error!,
+              onAction: c.connect,
+            );
+          }
           return HandshakeLoading(
             progress: c.progress,
             title: 'Menyambungkan SFTP ke ${c.credentials.label}…',
@@ -144,68 +151,62 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
     );
   }
 
-  Widget _connectError() {
-    return Container(
-      color: AppTheme.bg,
-      alignment: Alignment.center,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, color: Color(0xFFFF7B72), size: 36),
-            const SizedBox(height: 12),
-            Text(c.error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFFFF7B72), fontSize: 13)),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: c.connect,
-              icon: const Icon(Icons.refresh, size: 15),
-              label: const Text('Coba lagi'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _toolbar() {
     return Container(
       height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Row(
         children: [
-          _toolBtn(Icons.arrow_upward, 'Naik satu level', c.goUp),
-          _toolBtn(Icons.refresh, 'Muat ulang', c.refresh),
+          GhostIconButton(
+            icon: Icons.arrow_upward,
+            tooltip: 'Naik satu level',
+            onTap: c.goUp,
+          ),
+          GhostIconButton(
+            icon: Icons.refresh,
+            tooltip: 'Muat ulang',
+            onTap: c.refresh,
+          ),
           const SizedBox(width: 8),
           Expanded(
-            child: TextField(
-              controller: _pathCtrl,
-              style:
-                  TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: AppTheme.surface,
-                prefixIcon: Icon(Icons.folder_open,
-                    size: 15, color: AppTheme.textMuted),
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppTheme.border),
+            child: SizedBox(
+              height: 36,
+              child: TextField(
+                controller: _pathCtrl,
+                style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: AppTheme.surfaceInput,
+                  prefixIcon: Icon(Icons.folder_open_rounded,
+                      size: 16, color: AppTheme.textFaint),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.rSm),
+                    borderSide: BorderSide(color: AppTheme.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.rSm),
+                    borderSide: BorderSide(color: AppTheme.accent),
+                  ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppTheme.accent),
-                ),
+                onSubmitted: c.navigateTo,
               ),
-              onSubmitted: c.navigateTo,
             ),
           ),
           const SizedBox(width: 8),
-          _toolBtn(Icons.create_new_folder_outlined, 'Folder baru', _newFolder),
-          _actionBtn(Icons.upload_file, 'Unggah', _upload),
+          GhostIconButton(
+            icon: Icons.create_new_folder_outlined,
+            tooltip: 'Folder baru',
+            onTap: _newFolder,
+          ),
+          const SizedBox(width: 4),
+          ToolButton(
+            icon: Icons.upload_file,
+            label: 'Unggah',
+            color: AppTheme.accent,
+            onTap: _upload,
+          ),
         ],
       ),
     );
@@ -213,28 +214,12 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
 
   Widget _body() {
     if (c.error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline,
-                  color: Color(0xFFFF7B72), size: 36),
-              const SizedBox(height: 12),
-              Text(c.error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: Color(0xFFFF7B72), fontSize: 13)),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: c.refresh,
-                icon: const Icon(Icons.refresh, size: 15),
-                label: const Text('Coba lagi'),
-              ),
-            ],
-          ),
-        ),
+      return PanelMessage(
+        icon: Icons.error_outline,
+        iconColor: AppTheme.danger,
+        message: c.error!,
+        actionLabel: 'Coba lagi',
+        onAction: c.refresh,
       );
     }
     if (c.loading) {
@@ -248,12 +233,13 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
       );
     }
     if (c.entries.isEmpty) {
-      return Center(
-        child: Text('Folder kosong',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+      return const PanelMessage(
+        icon: Icons.folder_open_rounded,
+        message: 'Folder kosong',
       );
     }
     return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       itemCount: c.entries.length,
       itemBuilder: (_, i) => _EntryTile(
         entry: c.entries[i],
@@ -273,10 +259,20 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
     final msg = c.transferStatus!;
     final isError = msg.startsWith('✗');
     final isDone = msg.startsWith('✓');
+    final tint = isError
+        ? AppTheme.danger
+        : isDone
+            ? AppTheme.success
+            : AppTheme.textMuted;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      color: AppTheme.surface,
+      decoration: BoxDecoration(
+        color: (isError || isDone)
+            ? tint.withValues(alpha: 0.10)
+            : AppTheme.surface,
+        border: Border(top: BorderSide(color: AppTheme.border)),
+      ),
       child: Row(
         children: [
           if (!isError && !isDone)
@@ -288,40 +284,16 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
             )
           else
             Icon(isError ? Icons.error_outline : Icons.check_circle_outline,
-                size: 14,
-                color: isError ? const Color(0xFFFF7B72) : AppTheme.success),
+                size: 14, color: tint),
           const SizedBox(width: 8),
           Expanded(
             child: Text(msg,
                 style: TextStyle(
-                  color: isError ? const Color(0xFFFF7B72) : AppTheme.textMuted,
+                  color: (isError || isDone) ? tint : AppTheme.textMuted,
                   fontSize: 12,
                 )),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _toolBtn(IconData icon, String tip, VoidCallback onTap) {
-    return IconButton(
-      icon: Icon(icon, size: 17, color: AppTheme.textMuted),
-      tooltip: tip,
-      onPressed: onTap,
-    );
-  }
-
-  Widget _actionBtn(IconData icon, String label, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: FilledButton.icon(
-        onPressed: onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppTheme.accent,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-        ),
-        icon: Icon(icon, size: 15),
-        label: Text(label),
       ),
     );
   }
@@ -356,23 +328,37 @@ class _EntryTileState extends State<_EntryTile> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: InkWell(
+      child: GestureDetector(
         onTap: widget.onOpen,
-        child: Container(
-          color: _hover ? AppTheme.surface : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        child: AnimatedContainer(
+          duration: AppTheme.fast,
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            color: _hover ? AppTheme.surfaceInput : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.rSm),
+          ),
           child: Row(
             children: [
-              Icon(
-                isDir
-                    ? Icons.folder
-                    : isLink
-                        ? Icons.link
-                        : Icons.insert_drive_file_outlined,
-                size: 17,
-                color: isDir ? AppTheme.accent : AppTheme.textMuted,
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isDir ? AppTheme.accentSoft : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppTheme.rSm),
+                ),
+                child: Icon(
+                  isDir
+                      ? Icons.folder_rounded
+                      : isLink
+                          ? Icons.link_rounded
+                          : Icons.insert_drive_file_outlined,
+                  size: 16,
+                  color: isDir ? AppTheme.accent : AppTheme.textMuted,
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   e.filename,
@@ -385,19 +371,24 @@ class _EntryTileState extends State<_EntryTile> {
                 Text(
                   _formatSize(e.attr.size),
                   style: TextStyle(
-                      color: AppTheme.textMuted, fontSize: 11),
+                      color: AppTheme.textFaint, fontSize: 11),
                 ),
               if (_hover) ...[
                 const SizedBox(width: 8),
                 if (!isDir)
-                  _IconBtn(
-                      icon: Icons.download_outlined,
-                      tip: 'Unduh',
-                      onTap: widget.onDownload),
-                _IconBtn(
-                    icon: Icons.delete_outline,
-                    tip: 'Hapus',
-                    onTap: widget.onDelete),
+                  GhostIconButton(
+                    icon: Icons.download_outlined,
+                    tooltip: 'Unduh',
+                    size: 16,
+                    onTap: widget.onDownload,
+                  ),
+                GhostIconButton(
+                  icon: Icons.delete_outline,
+                  tooltip: 'Hapus',
+                  size: 16,
+                  color: AppTheme.danger,
+                  onTap: widget.onDelete,
+                ),
               ] else
                 const SizedBox(width: 8),
             ],
@@ -415,24 +406,5 @@ class _EntryTileState extends State<_EntryTile> {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-}
-
-class _IconBtn extends StatelessWidget {
-  const _IconBtn({required this.icon, required this.onTap, this.tip});
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? tip;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icon, size: 16, color: AppTheme.textMuted),
-      tooltip: tip,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-      onPressed: onTap,
-    );
   }
 }

@@ -3,13 +3,12 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/app_theme.dart';
 import 'connection_progress.dart';
 
-const _red = Color(0xFFFF7B72);
-
 /// Menampilkan tahapan handshake koneksi SSH (resolusi, TCP/tunnel, autentikasi,
 /// buka channel) sebagai daftar berikon. Dipakai pada layar loading SFTP, info
 /// server, dan Docker, serta sebagai overlay terminal.
 class HandshakeStepper extends StatelessWidget {
-  const HandshakeStepper({super.key, required this.progress, this.compact = false});
+  const HandshakeStepper(
+      {super.key, required this.progress, this.compact = false});
 
   final ConnectionProgress progress;
   final bool compact;
@@ -30,10 +29,10 @@ class HandshakeStepper extends StatelessWidget {
                 child: _StepRow(step: s),
               ),
             if (progress.error != null) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 progress.error!,
-                style: const TextStyle(color: _red, fontSize: 12),
+                style: TextStyle(color: AppTheme.danger, fontSize: 12),
               ),
             ],
           ],
@@ -57,16 +56,18 @@ class _StepRow extends StatelessWidget {
         leading = SizedBox(
           width: 15,
           height: 15,
-          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accent),
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: AppTheme.accent),
         );
         color = AppTheme.textPrimary;
         break;
       case StepStatus.done:
-        leading = Icon(Icons.check_circle, size: 15, color: AppTheme.success);
+        leading =
+            Icon(Icons.check_circle_rounded, size: 16, color: AppTheme.success);
         break;
       case StepStatus.failed:
-        leading = const Icon(Icons.cancel, size: 15, color: _red);
-        color = _red;
+        leading = Icon(Icons.cancel_rounded, size: 16, color: AppTheme.danger);
+        color = AppTheme.danger;
         break;
     }
     return Row(
@@ -84,7 +85,7 @@ class _StepRow extends StatelessWidget {
               if (step.detail != null)
                 TextSpan(
                   text: '  ·  ${step.detail}',
-                  style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                  style: TextStyle(color: AppTheme.textFaint, fontSize: 12),
                 ),
             ]),
             overflow: TextOverflow.ellipsis,
@@ -95,7 +96,7 @@ class _StepRow extends StatelessWidget {
   }
 }
 
-/// Pembungkus terpusat: tampilkan stepper di tengah layar loading.
+/// Pembungkus terpusat: layar "menyambungkan…" berbranding + stepper.
 class HandshakeLoading extends StatelessWidget {
   const HandshakeLoading({super.key, required this.progress, this.title});
 
@@ -108,21 +109,41 @@ class HandshakeLoading extends StatelessWidget {
       color: AppTheme.bg,
       alignment: Alignment.center,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
+        constraints: const BoxConstraints(maxWidth: 380),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (title != null) ...[
-              Text(
-                title!,
-                style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 14),
-            ],
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppTheme.accent, AppTheme.violet],
+                    ),
+                    borderRadius: BorderRadius.circular(AppTheme.rMd),
+                  ),
+                  child: const Icon(Icons.lan_rounded,
+                      size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                if (title != null)
+                  Flexible(
+                    child: Text(
+                      title!,
+                      style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
             HandshakeStepper(progress: progress),
           ],
         ),

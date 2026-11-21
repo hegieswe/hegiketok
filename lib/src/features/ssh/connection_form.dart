@@ -51,11 +51,6 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.border),
-      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -70,13 +65,13 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
                   children: [
                     Icon(Icons.cloud_outlined,
                         color: AppTheme.accent, size: 20),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
                       'Koneksi SSH Baru',
                       style: TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: 17,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -148,6 +143,7 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
                       onPressed: _submit,
                       style: FilledButton.styleFrom(
                         backgroundColor: AppTheme.accent,
+                        foregroundColor: AppTheme.onAccent,
                       ),
                       child: const Text('Connect'),
                     ),
@@ -191,28 +187,28 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle:
-                TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                TextStyle(color: AppTheme.textFaint, fontSize: 13),
             isDense: true,
             filled: true,
-            fillColor: AppTheme.bg,
+            fillColor: AppTheme.surfaceInput,
             suffixIcon: suffix,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
               borderSide: BorderSide(color: AppTheme.border),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
               borderSide: BorderSide(color: AppTheme.accent),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFFF7B72)),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
+              borderSide: BorderSide(color: AppTheme.danger),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFFF7B72)),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
+              borderSide: BorderSide(color: AppTheme.danger),
             ),
           ),
         ),

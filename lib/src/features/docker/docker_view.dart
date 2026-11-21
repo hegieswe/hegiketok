@@ -2,12 +2,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/ui.dart';
 import 'docker_controller.dart';
 import 'docker_models.dart';
-
-const _red = Color(0xFFFF7B72);
-const _green = Color(0xFF3FB950);
-const _amber = Color(0xFFD29922);
 
 /// Panel Docker: daftar container, stats, logs, dan aksi start/stop/restart/remove.
 class DockerView extends StatelessWidget {
@@ -28,22 +25,24 @@ class DockerView extends StatelessWidget {
           );
         }
         if (c.connectError != null && c.snapshot == null) {
-          return _errorState(c.connectError!, c.connect);
+          return PanelMessage(
+            icon: Icons.directions_boat_filled_outlined,
+            iconColor: AppTheme.warning,
+            title: 'Gagal terhubung',
+            message: c.connectError!,
+            onAction: c.connect,
+          );
         }
         if (c.loading && c.snapshot == null) {
-          return _Centered(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppTheme.accent)),
-                SizedBox(height: 14),
-                Text('Memuat Docker…',
-                    style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-              ],
+          return Container(
+            color: AppTheme.bg,
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppTheme.accent),
+              ),
             ),
           );
         }
@@ -51,8 +50,23 @@ class DockerView extends StatelessWidget {
           color: AppTheme.bg,
           child: Column(
             children: [
-              _header(context, c),
-              Divider(height: 1, color: AppTheme.border),
+              PanelHeader(
+                icon: Icons.directions_boat_filled_outlined,
+                title: 'Docker',
+                meta: (c.snapshot?.serverVersion ?? '').isEmpty
+                    ? null
+                    : 'v${c.snapshot!.serverVersion}',
+                actions: [
+                  RefreshControls(
+                    auto: c.autoRefresh,
+                    interval: c.intervalSeconds,
+                    onToggleAuto: c.toggleAutoRefresh,
+                    onInterval: c.setInterval,
+                    onRefresh: c.refresh,
+                    busy: c.refreshing,
+                  ),
+                ],
+              ),
               Expanded(child: _body(context, c)),
             ],
           ),
@@ -64,185 +78,36 @@ class DockerView extends StatelessWidget {
   Widget _body(BuildContext context, DockerController c) {
     final snap = c.snapshot!;
     if (snap.error != null) {
-      return _errorState(snap.error!, c.refresh, icon: Icons.dock);
+      return PanelMessage(
+        icon: Icons.dock,
+        iconColor: AppTheme.warning,
+        message: snap.error!,
+        onAction: c.refresh,
+      );
     }
     if (snap.containers.isEmpty) {
-      return _Centered(
-        child: Text('Tidak ada container.',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+      return PanelMessage(
+        icon: Icons.inbox_outlined,
+        message: 'Tidak ada container di server ini.',
       );
     }
     final running = snap.containers.where((e) => e.isRunning).length;
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       children: [
-        Text(
-          '${snap.containers.length} container · $running berjalan',
-          style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+        Row(
+          children: [
+            Pill('$running berjalan', color: AppTheme.success),
+            const SizedBox(width: 8),
+            Pill('${snap.containers.length} total', color: AppTheme.textMuted),
+          ],
         ),
-        const SizedBox(height: 12),
-        ...snap.containers.map((e) => _ContainerCard(
-              container: e,
-              controller: c,
-            )),
+        const SizedBox(height: 14),
+        ...snap.containers
+            .map((e) => _ContainerCard(container: e, controller: c)),
       ],
     );
   }
-
-  Widget _header(BuildContext context, DockerController c) {
-    final ver = c.snapshot?.serverVersion ?? '';
-    return Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: AppTheme.surface,
-      child: Row(
-        children: [
-          Icon(Icons.directions_boat_filled_outlined,
-              size: 20, color: AppTheme.accent),
-          const SizedBox(width: 10),
-          Text('Docker',
-              style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600)),
-          if (ver.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.bg,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Text('v$ver',
-                  style: TextStyle(
-                      color: AppTheme.textMuted, fontSize: 11)),
-            ),
-          ],
-          const Spacer(),
-          if (c.autoRefresh) _intervalSelector(c),
-          const SizedBox(width: 8),
-          _toggleChip(
-              label: 'Auto',
-              active: c.autoRefresh,
-              onTap: c.toggleAutoRefresh),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: c.refreshing ? null : c.refresh,
-            tooltip: 'Perbarui',
-            icon: c.refreshing
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppTheme.accent))
-                : Icon(Icons.refresh,
-                    size: 18, color: AppTheme.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _intervalSelector(DockerController c) {
-    return PopupMenuButton<int>(
-      initialValue: c.intervalSeconds,
-      tooltip: 'Interval refresh',
-      onSelected: c.setInterval,
-      color: AppTheme.surface,
-      itemBuilder: (_) => [2, 5, 10, 30, 60]
-          .map((s) => PopupMenuItem(
-                value: s,
-                child: Text('$s detik',
-                    style: TextStyle(
-                        color: AppTheme.textPrimary, fontSize: 13)),
-              ))
-          .toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.timer_outlined,
-                size: 13, color: AppTheme.textMuted),
-            const SizedBox(width: 5),
-            Text('${c.intervalSeconds}s',
-                style:
-                    TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-            Icon(Icons.arrow_drop_down,
-                size: 16, color: AppTheme.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _toggleChip({
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? _green.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? _green : AppTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(active ? Icons.sync : Icons.sync_disabled,
-                size: 13, color: active ? _green : AppTheme.textMuted),
-            const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    color: active ? _green : AppTheme.textMuted,
-                    fontSize: 11)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _errorState(String msg, VoidCallback onRetry,
-      {IconData icon = Icons.error_outline}) {
-    return _Centered(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: _amber, size: 38),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 340,
-            child: Text(msg,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 15),
-            label: const Text('Coba lagi'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Centered extends StatelessWidget {
-  const _Centered({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) =>
-      Container(color: AppTheme.bg, child: Center(child: child));
 }
 
 class _ContainerCard extends StatelessWidget {
@@ -254,13 +119,12 @@ class _ContainerCard extends StatelessWidget {
   Color get _statusColor {
     switch (container.state) {
       case 'running':
-        return _green;
+        return AppTheme.success;
       case 'paused':
-        return _amber;
       case 'restarting':
-        return _amber;
+        return AppTheme.warning;
       default:
-        return AppTheme.textMuted;
+        return AppTheme.textFaint;
     }
   }
 
@@ -268,7 +132,7 @@ class _ContainerCard extends StatelessWidget {
     final err = await controller.action(act, container);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      backgroundColor: err == null ? _green : _red,
+      backgroundColor: err == null ? AppTheme.success : AppTheme.danger,
       duration: const Duration(seconds: 2),
       content: Text(err ?? '$verb: ${container.name}',
           style: const TextStyle(color: Colors.white)),
@@ -279,7 +143,6 @@ class _ContainerCard extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.surface,
         title: Text('Hapus container?',
             style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
         content: Text(
@@ -289,12 +152,11 @@ class _ContainerCard extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Batal',
-                style: TextStyle(color: AppTheme.textMuted)),
+            child: Text('Batal', style: TextStyle(color: AppTheme.textMuted)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: _red),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
             child: const Text('Hapus'),
           ),
         ],
@@ -308,27 +170,17 @@ class _ContainerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = container;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.border),
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 9,
-                height: 9,
-                margin: const EdgeInsets.only(top: 2),
-                decoration:
-                    BoxDecoration(color: _statusColor, shape: BoxShape.circle),
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: StatusDot(_statusColor),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +190,7 @@ class _ContainerCard extends StatelessWidget {
                             color: AppTheme.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 2),
                     Text('${c.shortId} · ${c.image}',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -349,51 +201,55 @@ class _ContainerCard extends StatelessWidget {
                 ),
               ),
               if (c.isRunning) ...[
-                _statChip('CPU', '${c.cpuPerc?.toStringAsFixed(1) ?? "-"}%'),
+                Tag('CPU ${c.cpuPerc?.toStringAsFixed(1) ?? "-"}%', mono: true),
                 const SizedBox(width: 6),
-                _statChip('MEM', c.memUsage?.split(' / ').first ?? '-'),
+                Tag('MEM ${c.memUsage?.split(' / ').first ?? '-'}', mono: true),
               ],
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                c.isRunning
-                    ? Icons.play_circle_fill
-                    : Icons.stop_circle_outlined,
-                size: 13,
-                color: _statusColor,
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  c.ports.isEmpty ? c.status : '${c.status}  ·  ${c.ports}',
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      TextStyle(color: AppTheme.textMuted, fontSize: 11),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
+              Pill(c.isRunning ? 'running' : c.state,
+                  color: _statusColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  c.ports.isEmpty ? c.status : '${c.status}  ·  ${c.ports}',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
               if (c.isRunning) ...[
-                _action(context, Icons.stop, 'Stop', () =>
-                    _run(context, 'stop', 'Dihentikan')),
-                _action(context, Icons.restart_alt, 'Restart', () =>
-                    _run(context, 'restart', 'Direstart')),
+                ToolButton(
+                    icon: Icons.stop_rounded,
+                    label: 'Stop',
+                    onTap: () => _run(context, 'stop', 'Dihentikan')),
+                ToolButton(
+                    icon: Icons.restart_alt_rounded,
+                    label: 'Restart',
+                    onTap: () => _run(context, 'restart', 'Direstart')),
               ] else
-                _action(context, Icons.play_arrow, 'Start',
-                    () => _run(context, 'start', 'Dijalankan'),
-                    color: _green),
-              _action(context, Icons.article_outlined, 'Logs',
-                  () => _showLogs(context)),
+                ToolButton(
+                    icon: Icons.play_arrow_rounded,
+                    label: 'Start',
+                    color: AppTheme.success,
+                    onTap: () => _run(context, 'start', 'Dijalankan')),
+              ToolButton(
+                  icon: Icons.article_outlined,
+                  label: 'Logs',
+                  onTap: () => _showLogs(context)),
               const Spacer(),
-              _action(context, Icons.delete_outline, 'Hapus',
-                  () => _confirmRemove(context),
-                  color: _red),
+              ToolButton(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Hapus',
+                  color: AppTheme.danger,
+                  onTap: () => _confirmRemove(context)),
             ],
           ),
         ],
@@ -404,59 +260,8 @@ class _ContainerCard extends StatelessWidget {
   void _showLogs(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => _LogsDialog(controller: controller, container: container),
-    );
-  }
-
-  Widget _statChip(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('$label ',
-              style:
-                  TextStyle(color: AppTheme.textMuted, fontSize: 10)),
-          Text(value,
-              style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'Menlo')),
-        ],
-      ),
-    );
-  }
-
-  Widget _action(BuildContext context, IconData icon, String label,
-      VoidCallback onTap,
-      {Color? color}) {
-    color ??= AppTheme.textMuted;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(7),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(7),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 5),
-              Text(label, style: TextStyle(color: color, fontSize: 12)),
-            ],
-          ),
-        ),
-      ),
+      builder: (_) =>
+          _LogsDialog(controller: controller, container: container),
     );
   }
 }
@@ -494,13 +299,8 @@ class _LogsDialogState extends State<_LogsDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.border),
-      ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 560),
+        constraints: const BoxConstraints(maxWidth: 780, maxHeight: 580),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -508,8 +308,7 @@ class _LogsDialogState extends State<_LogsDialog> {
               padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
               child: Row(
                 children: [
-                  Icon(Icons.article_outlined,
-                      size: 18, color: AppTheme.accent),
+                  Icon(Icons.article_outlined, size: 18, color: AppTheme.accent),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text('Logs · ${widget.container.name}',
@@ -517,12 +316,12 @@ class _LogsDialogState extends State<_LogsDialog> {
                         style: TextStyle(
                             color: AppTheme.textPrimary,
                             fontSize: 15,
-                            fontWeight: FontWeight.w600)),
+                            fontWeight: FontWeight.w700)),
                   ),
                   PopupMenuButton<int>(
                     initialValue: _tail,
                     tooltip: 'Jumlah baris',
-                    color: AppTheme.surface,
+                    position: PopupMenuPosition.under,
                     onSelected: (v) {
                       _tail = v;
                       _load();
@@ -530,16 +329,16 @@ class _LogsDialogState extends State<_LogsDialog> {
                     itemBuilder: (_) => [100, 200, 500, 1000]
                         .map((v) => PopupMenuItem(
                             value: v,
+                            height: 38,
                             child: Text('$v baris',
                                 style: TextStyle(
-                                    color: AppTheme.textPrimary,
-                                    fontSize: 13))))
+                                    color: AppTheme.textPrimary, fontSize: 13))))
                         .toList(),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppTheme.rSm),
                         border: Border.all(color: AppTheme.border),
                       ),
                       child: Text('$_tail baris',
@@ -547,17 +346,13 @@ class _LogsDialogState extends State<_LogsDialog> {
                               color: AppTheme.textMuted, fontSize: 12)),
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.refresh,
-                        size: 18, color: AppTheme.textMuted),
-                    tooltip: 'Muat ulang',
-                    onPressed: _load,
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close,
-                        size: 18, color: AppTheme.textMuted),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                  GhostIconButton(
+                      icon: Icons.refresh_rounded,
+                      tooltip: 'Muat ulang',
+                      onTap: _load),
+                  GhostIconButton(
+                      icon: Icons.close_rounded,
+                      onTap: () => Navigator.pop(context)),
                 ],
               ),
             ),
@@ -585,7 +380,7 @@ class _LogsDialogState extends State<_LogsDialog> {
                               color: AppTheme.textPrimary,
                               fontSize: 12,
                               fontFamily: 'Menlo',
-                              height: 1.4),
+                              height: 1.45),
                         ),
                       ),
                     ),

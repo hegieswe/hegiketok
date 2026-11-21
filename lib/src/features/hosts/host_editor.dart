@@ -146,11 +146,6 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.border),
-      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: SingleChildScrollView(
@@ -171,7 +166,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                       style: TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: 17,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -228,15 +223,15 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF7B72).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppTheme.danger.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppTheme.rSm),
                       border: Border.all(
-                          color: const Color(0xFFFF7B72).withValues(alpha: 0.4)),
+                          color: AppTheme.danger.withValues(alpha: 0.4)),
                     ),
                     child: Text(
                       _saveError!,
-                      style: const TextStyle(
-                          color: Color(0xFFFF7B72), fontSize: 12),
+                      style: TextStyle(
+                          color: AppTheme.danger, fontSize: 12),
                     ),
                   ),
                 ],
@@ -255,13 +250,15 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                     FilledButton(
                       onPressed: _saving ? null : _submit,
                       style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.accent),
+                        backgroundColor: AppTheme.accent,
+                        foregroundColor: AppTheme.onAccent,
+                      ),
                       child: _saving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
+                                  strokeWidth: 2, color: AppTheme.onAccent),
                             )
                           : const Text('Simpan'),
                     ),
@@ -281,14 +278,14 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
       return Expanded(
         child: InkWell(
           onTap: () => setState(() => _method = m),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppTheme.rSm),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
               color: selected
                   ? AppTheme.accent.withValues(alpha: 0.15)
-                  : AppTheme.bg,
-              borderRadius: BorderRadius.circular(8),
+                  : AppTheme.surfaceInput,
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
               border: Border.all(
                 color: selected ? AppTheme.accent : AppTheme.border,
               ),
@@ -305,7 +302,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                   style: TextStyle(
                     color: selected ? AppTheme.accent : AppTheme.textMuted,
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -348,8 +345,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: AppTheme.bg,
-            borderRadius: BorderRadius.circular(8),
+            color: AppTheme.surfaceInput,
+            borderRadius: BorderRadius.circular(AppTheme.rSm),
             border: Border.all(color: AppTheme.border),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -357,7 +354,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
             child: DropdownButton<String?>(
               value: _jumpHostId,
               isExpanded: true,
-              dropdownColor: AppTheme.surface,
+              dropdownColor: AppTheme.surfaceHigh,
               icon: Icon(Icons.arrow_drop_down, color: AppTheme.textMuted),
               style:
                   TextStyle(color: AppTheme.textPrimary, fontSize: 14),
@@ -440,7 +437,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
             style: TextStyle(
               color: _keyStatus!.startsWith('✓')
                   ? AppTheme.success
-                  : const Color(0xFFFF7B72),
+                  : AppTheme.danger,
               fontSize: 12,
             ),
           ),
@@ -496,28 +493,28 @@ class _LabeledField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle:
-                TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                TextStyle(color: AppTheme.textFaint, fontSize: 13),
             isDense: true,
             filled: true,
-            fillColor: AppTheme.bg,
+            fillColor: AppTheme.surfaceInput,
             suffixIcon: suffix,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
               borderSide: BorderSide(color: AppTheme.border),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
               borderSide: BorderSide(color: AppTheme.accent),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFFF7B72)),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
+              borderSide: BorderSide(color: AppTheme.danger),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFFF7B72)),
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
+              borderSide: BorderSide(color: AppTheme.danger),
             ),
           ),
         ),

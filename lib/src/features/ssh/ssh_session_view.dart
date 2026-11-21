@@ -3,10 +3,9 @@ import 'package:material_ui/material_ui.dart';
 import '../../ssh/handshake_stepper.dart';
 import '../../ssh/port_forward.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/ui.dart';
 import '../terminal/session_view.dart';
 import 'ssh_terminal_session.dart';
-
-const _green = Color(0xFF3FB950);
 
 /// Tampilan sesi SSH: terminal + banner handshake (sebelum terhubung) + bar
 /// port-forward (saran dari output & daftar forward aktif).
@@ -26,7 +25,10 @@ class SshSessionView extends StatelessWidget {
             if (session.progress.finished) return const SizedBox.shrink();
             return Container(
               width: double.infinity,
-              color: AppTheme.surface,
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                border: Border(bottom: BorderSide(color: AppTheme.border)),
+              ),
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: HandshakeStepper(progress: session.progress),
             );
@@ -59,8 +61,11 @@ class _ForwardBar extends StatelessWidget {
             }
             return Container(
               width: double.infinity,
-              color: AppTheme.surface,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                border: Border(bottom: BorderSide(color: AppTheme.border)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -102,31 +107,30 @@ class _SuggestionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          Icon(Icons.bolt, size: 16, color: AppTheme.accent),
+          Icon(Icons.bolt_rounded, size: 16, color: AppTheme.accent),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Server terdeteksi di port ${suggestion.port} — teruskan ke localhost?',
-              style: TextStyle(color: AppTheme.textPrimary, fontSize: 12),
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 12.5),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 8),
-          _MiniButton(
+          ToolButton(
+            icon: Icons.swap_horiz_rounded,
             label: 'Forward',
-            primary: true,
+            color: AppTheme.accent,
             onTap: () => _accept(context),
           ),
-          const SizedBox(width: 6),
-          IconButton(
-            icon: Icon(Icons.close, size: 15, color: AppTheme.textMuted),
+          GhostIconButton(
+            icon: Icons.close_rounded,
+            size: 15,
             tooltip: 'Abaikan',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-            onPressed: () => session.dismissSuggestion(suggestion),
+            onTap: () => session.dismissSuggestion(suggestion),
           ),
         ],
       ),
@@ -145,14 +149,14 @@ class _ActiveChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 5, 4, 5),
       decoration: BoxDecoration(
-        color: _green.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _green.withValues(alpha: 0.4)),
+        color: AppTheme.success.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppTheme.rPill),
+        border: Border.all(color: AppTheme.success.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.swap_horiz, size: 14, color: _green),
+          Icon(Icons.swap_horiz_rounded, size: 14, color: AppTheme.success),
           const SizedBox(width: 6),
           Text(
             forward.label,
@@ -172,41 +176,6 @@ class _ActiveChip extends StatelessWidget {
             onPressed: () => session.forwards?.stop(forward),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MiniButton extends StatelessWidget {
-  const _MiniButton(
-      {required this.label, required this.onTap, this.primary = false});
-
-  final String label;
-  final VoidCallback onTap;
-  final bool primary;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: primary
-              ? AppTheme.accent.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: primary ? AppTheme.accent : AppTheme.border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: primary ? AppTheme.accent : AppTheme.textMuted,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
       ),
     );
   }

@@ -2,12 +2,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/ui.dart';
 import 'user_controller.dart';
 import 'user_models.dart';
-
-const _green = Color(0xFF3FB950);
-const _amber = Color(0xFFD29922);
-const _purple = Color(0xFFBC8CFF);
 
 enum _Filter { all, human, system }
 
@@ -80,7 +77,6 @@ class _UserViewState extends State<UserView> {
           child: Column(
             children: [
               _header(),
-              Divider(height: 1, color: AppTheme.border),
               _filterBar(),
               Expanded(child: _list()),
             ],
@@ -93,36 +89,18 @@ class _UserViewState extends State<UserView> {
   Widget _header() {
     final online = c.users.where((u) => u.loggedIn).length;
     final sudoers = c.users.where((u) => u.isSudoer || u.isRoot).length;
-    return Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: AppTheme.surface,
-      child: Row(
-        children: [
-          Icon(Icons.group_outlined, size: 20, color: AppTheme.accent),
-          const SizedBox(width: 10),
-          Text('Users',
-              style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600)),
-          const SizedBox(width: 10),
-          Text('${c.users.length} user · $online online · $sudoers admin',
-              style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-          const Spacer(),
-          IconButton(
-            onPressed: c.refreshing ? null : c.refresh,
-            tooltip: 'Perbarui',
-            icon: c.refreshing
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppTheme.accent))
-                : Icon(Icons.refresh, size: 18, color: AppTheme.textMuted),
-          ),
-        ],
-      ),
+    return PanelHeader(
+      icon: Icons.group_outlined,
+      title: 'Users',
+      meta: '${c.users.length} user · $online online · $sudoers admin',
+      actions: [
+        GhostIconButton(
+          icon: Icons.refresh_rounded,
+          tooltip: 'Perbarui',
+          busy: c.refreshing,
+          onTap: c.refresh,
+        ),
+      ],
     );
   }
 
@@ -133,64 +111,30 @@ class _UserViewState extends State<UserView> {
       child: Row(
         children: [
           Expanded(
-            child: SizedBox(
-              height: 34,
-              child: TextField(
-                style:
-                    TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-                onChanged: (v) => setState(() => _query = v),
-                decoration: InputDecoration(
-                  isDense: true,
-                  filled: true,
-                  fillColor: AppTheme.surface,
-                  hintText: 'Cari user…',
-                  hintStyle:
-                      TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                  prefixIcon: Icon(Icons.search,
-                      size: 16, color: AppTheme.textMuted),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.accent),
-                  ),
-                ),
-              ),
+            child: SearchField(
+              hint: 'Cari user…',
+              onChanged: (v) => setState(() => _query = v),
             ),
           ),
           const SizedBox(width: 10),
-          _filterChip('Semua', _Filter.all),
+          FilterTab(
+            label: 'Semua',
+            active: _filter == _Filter.all,
+            onTap: () => setState(() => _filter = _Filter.all),
+          ),
           const SizedBox(width: 6),
-          _filterChip('Manusia', _Filter.human),
+          FilterTab(
+            label: 'Manusia',
+            active: _filter == _Filter.human,
+            onTap: () => setState(() => _filter = _Filter.human),
+          ),
           const SizedBox(width: 6),
-          _filterChip('Sistem', _Filter.system),
+          FilterTab(
+            label: 'Sistem',
+            active: _filter == _Filter.system,
+            onTap: () => setState(() => _filter = _Filter.system),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, _Filter f) {
-    final active = _filter == f;
-    return InkWell(
-      onTap: () => setState(() => _filter = f),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active
-              ? AppTheme.accent.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? AppTheme.accent : AppTheme.border),
-        ),
-        child: Text(label,
-            style: TextStyle(
-                color: active ? AppTheme.accent : AppTheme.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500)),
       ),
     );
   }
@@ -198,9 +142,9 @@ class _UserViewState extends State<UserView> {
   Widget _list() {
     final items = _visible();
     if (items.isEmpty) {
-      return _Centered(
-        child: Text('Tidak ada user yang cocok.',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+      return const PanelMessage(
+        icon: Icons.group_outlined,
+        message: 'Tidak ada user yang cocok.',
       );
     }
     return ListView.builder(
@@ -212,26 +156,11 @@ class _UserViewState extends State<UserView> {
 
   Widget _errorState(String msg, VoidCallback onRetry,
       {IconData icon = Icons.error_outline}) {
-    return _Centered(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: _amber, size: 38),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 360,
-            child: Text(msg,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 15),
-            label: const Text('Coba lagi'),
-          ),
-        ],
-      ),
+    return PanelMessage(
+      icon: icon,
+      message: msg,
+      iconColor: AppTheme.warning,
+      onAction: onRetry,
     );
   }
 }
@@ -251,14 +180,9 @@ class _UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final u = user;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+    return AppCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.border),
-      ),
+      margin: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           Stack(
@@ -269,22 +193,14 @@ class _UserCard extends StatelessWidget {
                 child: Icon(
                   u.isRoot ? Icons.shield : Icons.person_outline,
                   size: 17,
-                  color: u.isRoot ? _amber : AppTheme.textMuted,
+                  color: u.isRoot ? AppTheme.warning : AppTheme.textMuted,
                 ),
               ),
               if (u.loggedIn)
                 Positioned(
                   right: 0,
                   bottom: 0,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: _green,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.surface, width: 2),
-                    ),
-                  ),
+                  child: StatusDot(AppTheme.success),
                 ),
             ],
           ),
@@ -304,9 +220,21 @@ class _UserCard extends StatelessWidget {
                               fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 8),
-                    if (u.isRoot) _badge('root', _amber),
-                    if (u.isSudoer && !u.isRoot) _badge('sudo', _purple),
-                    if (!u.canLogin) _badge('no-login', AppTheme.textMuted),
+                    if (u.isRoot)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Pill('root', color: AppTheme.warning),
+                      ),
+                    if (u.isSudoer && !u.isRoot)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Pill('sudo', color: AppTheme.violet),
+                      ),
+                    if (!u.canLogin)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Pill('no-login', color: AppTheme.textFaint),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 2),
@@ -325,33 +253,12 @@ class _UserCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('uid ${u.uid}',
-                  style: TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 11,
-                      fontFamily: 'Menlo')),
-              Text('gid ${u.gid}',
-                  style: TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 11,
-                      fontFamily: 'Menlo')),
+              Tag('uid ${u.uid}', mono: true),
+              const SizedBox(height: 4),
+              Tag('gid ${u.gid}', mono: true),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _badge(String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(text, style: TextStyle(color: color, fontSize: 10)),
       ),
     );
   }
