@@ -20,25 +20,12 @@ class HostSidebar extends ConsumerWidget {
     required this.onOpenUsers,
   });
 
-  /// Dipanggil saat pengguna memilih sebuah host untuk dikoneksikan (terminal).
   final void Function(SshHost host) onConnect;
-
-  /// Dipanggil saat pengguna ingin membuka browser SFTP untuk sebuah host.
   final void Function(SshHost host) onOpenSftp;
-
-  /// Dipanggil saat pengguna ingin membuka dashboard info server.
   final void Function(SshHost host) onOpenInfo;
-
-  /// Dipanggil saat pengguna ingin membuka panel Docker.
   final void Function(SshHost host) onOpenDocker;
-
-  /// Dipanggil saat pengguna ingin membuka panel service systemd.
   final void Function(SshHost host) onOpenServices;
-
-  /// Dipanggil saat pengguna ingin membuka penjadwal cron.
   final void Function(SshHost host) onOpenCron;
-
-  /// Dipanggil saat pengguna ingin membuka daftar user sistem.
   final void Function(SshHost host) onOpenUsers;
 
   @override
@@ -46,8 +33,8 @@ class HostSidebar extends ConsumerWidget {
     final hostsAsync = ref.watch(hostsProvider);
 
     return Container(
-      width: 240,
-      decoration: const BoxDecoration(
+      width: 256,
+      decoration: BoxDecoration(
         color: AppTheme.surface,
         border: Border(right: BorderSide(color: AppTheme.border)),
       ),
@@ -55,40 +42,42 @@ class HostSidebar extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 10, 8),
+            padding: const EdgeInsets.fromLTRB(18, 16, 12, 10),
             child: Row(
               children: [
-                const Icon(Icons.dns_outlined,
-                    size: 15, color: AppTheme.textMuted),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'SAVED HOSTS',
-                    style: TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
+                Text(
+                  'HOSTS',
+                  style: TextStyle(
+                    color: AppTheme.textFaint,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
                   ),
                 ),
-                _IconBtn(
+                const SizedBox(width: 8),
+                hostsAsync.maybeWhen(
+                  data: (h) => h.isEmpty
+                      ? const SizedBox.shrink()
+                      : _countPill(h.length),
+                  orElse: () => const SizedBox.shrink(),
+                ),
+                const Spacer(),
+                _HeaderBtn(
                   icon: Icons.download_outlined,
                   tooltip: 'Import dari ~/.ssh/config',
                   onTap: () => showSshConfigImport(context),
                 ),
-                _IconBtn(
-                  icon: Icons.add,
+                _HeaderBtn(
+                  icon: Icons.add_rounded,
                   tooltip: 'Tambah host',
                   onTap: () => showHostEditor(context),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppTheme.border),
           Expanded(
             child: hostsAsync.when(
-              loading: () => const Center(
+              loading: () => Center(
                 child: SizedBox(
                   width: 18,
                   height: 18,
@@ -99,13 +88,12 @@ class HostSidebar extends ConsumerWidget {
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text('Gagal memuat host:\n$e',
-                    style: const TextStyle(
-                        color: Color(0xFFFF7B72), fontSize: 12)),
+                    style: TextStyle(color: AppTheme.danger, fontSize: 12)),
               ),
               data: (hosts) => hosts.isEmpty
                   ? _empty(context)
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.fromLTRB(10, 2, 10, 12),
                       itemCount: hosts.length,
                       itemBuilder: (_, i) => _HostTile(
                         host: hosts[i],
@@ -128,25 +116,55 @@ class HostSidebar extends ConsumerWidget {
     );
   }
 
+  Widget _countPill(int n) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceInput,
+          borderRadius: BorderRadius.circular(AppTheme.rPill),
+        ),
+        child: Text('$n',
+            style: TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600)),
+      );
+
   Widget _empty(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(22),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.inbox_outlined,
-                size: 32, color: AppTheme.border),
-            const SizedBox(height: 10),
-            const Text(
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceInput,
+                borderRadius: BorderRadius.circular(AppTheme.rLg),
+              ),
+              child: Icon(Icons.dns_outlined, size: 24, color: AppTheme.textFaint),
+            ),
+            const SizedBox(height: 14),
+            Text(
               'Belum ada host tersimpan',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
+            const SizedBox(height: 4),
+            Text(
+              'Tambahkan server untuk mulai.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textFaint, fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(
               onPressed: () => showHostEditor(context),
-              icon: const Icon(Icons.add, size: 15),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: AppTheme.onAccent,
+              ),
+              icon: const Icon(Icons.add_rounded, size: 16),
               label: const Text('Tambah Host'),
             ),
           ],
@@ -160,23 +178,20 @@ class HostSidebar extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.surface,
-        title: const Text('Hapus host?',
+        title: Text('Hapus host?',
             style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
         content: Text(
           'Host "${host.label}" dan rahasianya akan dihapus permanen.',
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+          style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal',
-                style: TextStyle(color: AppTheme.textMuted)),
+            child: Text('Batal', style: TextStyle(color: AppTheme.textMuted)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF7B72)),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
             child: const Text('Hapus'),
           ),
         ],
@@ -186,6 +201,28 @@ class HostSidebar extends ConsumerWidget {
       await ref.read(hostsProvider.notifier).delete(host.id);
     }
   }
+}
+
+/// Pilih ikon berdasarkan tebakan OS dari label/host (best-effort).
+IconData _osIcon(SshHost host) {
+  final t = '${host.label} ${host.host}'.toLowerCase();
+  if (t.contains('ubuntu') ||
+      t.contains('debian') ||
+      t.contains('linux') ||
+      t.contains('centos') ||
+      t.contains('fedora') ||
+      t.contains('arch')) {
+    return Icons.terminal_rounded;
+  }
+  if (t.contains('mac') || t.contains('darwin')) return Icons.laptop_mac;
+  if (t.contains('win')) return Icons.window;
+  if (t.contains('db') || t.contains('sql') || t.contains('postgres')) {
+    return Icons.storage_rounded;
+  }
+  if (t.contains('web') || t.contains('nginx') || t.contains('app')) {
+    return Icons.public;
+  }
+  return Icons.dns_rounded;
 }
 
 class _HostTile extends StatefulWidget {
@@ -223,139 +260,171 @@ class _HostTileState extends State<_HostTile> {
   @override
   Widget build(BuildContext context) {
     final host = widget.host;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: InkWell(
-        onTap: widget.onConnect,
-        child: Container(
-          color: _hover ? AppTheme.bg : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          child: Row(
-            children: [
-              Icon(
-                host.authMethod == SshAuthMethod.key
-                    ? Icons.vpn_key_outlined
-                    : Icons.dns_outlined,
-                size: 15,
-                color: AppTheme.accent,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    final isKey = host.authMethod == SshAuthMethod.key;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: AnimatedContainer(
+          duration: AppTheme.fast,
+          decoration: BoxDecoration(
+            color: _hover ? AppTheme.surfaceInput : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.rMd),
+            border: Border.all(
+                color: _hover ? AppTheme.border : Colors.transparent),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onConnect,
+              borderRadius: BorderRadius.circular(AppTheme.rMd),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
+                child: Row(
                   children: [
-                    Text(
-                      host.label,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                    _avatar(host),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  host.label,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimary,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (host.jumpHostId != null) ...[
+                                const SizedBox(width: 6),
+                                Icon(Icons.alt_route,
+                                    size: 12, color: AppTheme.violet),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(
+                                  isKey
+                                      ? Icons.vpn_key_rounded
+                                      : Icons.password_rounded,
+                                  size: 10,
+                                  color: AppTheme.textFaint),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  host.subtitle,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                      color: AppTheme.textMuted, fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            host.subtitle,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: AppTheme.textMuted, fontSize: 11),
-                          ),
-                        ),
-                        if (host.jumpHostId != null) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.alt_route,
-                              size: 11, color: AppTheme.accent),
-                        ],
-                      ],
-                    ),
+                    _menu(),
                   ],
                 ),
               ),
-              if (_hover) ...[
-                _IconBtn(
-                  icon: Icons.monitor_heart_outlined,
-                  tooltip: 'Info server (CPU, RAM, disk…)',
-                  onTap: widget.onOpenInfo,
-                ),
-                _IconBtn(
-                  icon: Icons.directions_boat_filled_outlined,
-                  tooltip: 'Docker (container, logs…)',
-                  onTap: widget.onOpenDocker,
-                ),
-                _IconBtn(
-                  icon: Icons.settings_suggest_outlined,
-                  tooltip: 'Services (systemd)',
-                  onTap: widget.onOpenServices,
-                ),
-                _IconBtn(
-                  icon: Icons.folder_outlined,
-                  tooltip: 'Buka SFTP (file manager)',
-                  onTap: widget.onOpenSftp,
-                ),
-                PopupMenuButton<String>(
-                  tooltip: 'Lainnya',
-                  color: AppTheme.surface,
-                  padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 28, minHeight: 28),
-                  icon: const Icon(Icons.more_horiz,
-                      size: 15, color: AppTheme.textMuted),
-                  onSelected: (v) {
-                    if (v == 'cron') widget.onOpenCron();
-                    if (v == 'users') widget.onOpenUsers();
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'cron',
-                      child: Row(children: [
-                        Icon(Icons.schedule, size: 15, color: AppTheme.textMuted),
-                        SizedBox(width: 8),
-                        Text('Cron (penjadwal)',
-                            style: TextStyle(
-                                color: AppTheme.textPrimary, fontSize: 13)),
-                      ]),
-                    ),
-                    PopupMenuItem(
-                      value: 'users',
-                      child: Row(children: [
-                        Icon(Icons.group_outlined,
-                            size: 15, color: AppTheme.textMuted),
-                        SizedBox(width: 8),
-                        Text('Users (sistem)',
-                            style: TextStyle(
-                                color: AppTheme.textPrimary, fontSize: 13)),
-                      ]),
-                    ),
-                  ],
-                ),
-                _IconBtn(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit',
-                  onTap: widget.onEdit,
-                ),
-                _IconBtn(
-                  icon: Icons.delete_outline,
-                  tooltip: 'Hapus',
-                  onTap: widget.onDelete,
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  Widget _avatar(SshHost host) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: AppTheme.accentSoft,
+        borderRadius: BorderRadius.circular(AppTheme.rSm),
+      ),
+      child: Icon(_osIcon(host), size: 17, color: AppTheme.accent),
+    );
+  }
+
+  Widget _menu() {
+    return AnimatedOpacity(
+      opacity: _hover ? 1 : 0,
+      duration: AppTheme.fast,
+      child: PopupMenuButton<String>(
+        tooltip: 'Aksi',
+        padding: EdgeInsets.zero,
+        position: PopupMenuPosition.under,
+        constraints: const BoxConstraints(minWidth: 180),
+        icon: Icon(Icons.more_horiz_rounded, size: 17, color: AppTheme.textMuted),
+        onSelected: (v) {
+          switch (v) {
+            case 'terminal':
+              widget.onConnect();
+            case 'info':
+              widget.onOpenInfo();
+            case 'sftp':
+              widget.onOpenSftp();
+            case 'docker':
+              widget.onOpenDocker();
+            case 'services':
+              widget.onOpenServices();
+            case 'cron':
+              widget.onOpenCron();
+            case 'users':
+              widget.onOpenUsers();
+            case 'edit':
+              widget.onEdit();
+            case 'delete':
+              widget.onDelete();
+          }
+        },
+        itemBuilder: (_) => [
+          _item('terminal', Icons.terminal_rounded, 'Buka Terminal'),
+          _item('info', Icons.monitor_heart_outlined, 'Info Server'),
+          _item('sftp', Icons.folder_outlined, 'SFTP (file)'),
+          _item('docker', Icons.directions_boat_filled_outlined, 'Docker'),
+          _item('services', Icons.settings_suggest_outlined, 'Services'),
+          _item('cron', Icons.schedule, 'Cron'),
+          _item('users', Icons.group_outlined, 'Users'),
+          const PopupMenuDivider(),
+          _item('edit', Icons.edit_outlined, 'Edit'),
+          _item('delete', Icons.delete_outline, 'Hapus', danger: true),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _item(String value, IconData icon, String label,
+      {bool danger = false}) {
+    final color = danger ? AppTheme.danger : AppTheme.textMuted;
+    return PopupMenuItem<String>(
+      value: value,
+      height: 38,
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 10),
+          Text(label,
+              style: TextStyle(
+                  color: danger ? AppTheme.danger : AppTheme.textPrimary,
+                  fontSize: 13)),
+        ],
+      ),
+    );
+  }
 }
 
-class _IconBtn extends StatelessWidget {
-  const _IconBtn({
-    required this.icon,
-    required this.onTap,
-    this.tooltip,
-  });
+class _HeaderBtn extends StatelessWidget {
+  const _HeaderBtn({required this.icon, required this.onTap, this.tooltip});
 
   final IconData icon;
   final VoidCallback onTap;
@@ -364,10 +433,11 @@ class _IconBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(icon, size: 15, color: AppTheme.textMuted),
+      icon: Icon(icon, size: 17, color: AppTheme.textMuted),
       tooltip: tooltip,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
       onPressed: onTap,
     );
   }

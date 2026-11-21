@@ -45,7 +45,7 @@ class ServerInfoView extends StatelessWidget {
           );
         }
         if (c.loading && c.info == null && c.error == null) {
-          return const _Centered(
+          return _Centered(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -166,11 +166,11 @@ class _ThresholdDialog extends ConsumerWidget {
           Row(
             children: [
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textPrimary, fontSize: 13)),
               const Spacer(),
               Text('${value.toStringAsFixed(0)}%',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.accent,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
@@ -192,7 +192,7 @@ class _ThresholdDialog extends ConsumerWidget {
       backgroundColor: AppTheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppTheme.border),
+        side: BorderSide(color: AppTheme.border),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -204,10 +204,10 @@ class _ThresholdDialog extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.notifications_active,
+                  Icon(Icons.notifications_active,
                       size: 20, color: AppTheme.accent),
                   const SizedBox(width: 8),
-                  const Text('Ambang Peringatan',
+                  Text('Ambang Peringatan',
                       style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontSize: 17,
@@ -215,7 +215,7 @@ class _ThresholdDialog extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Peringatan muncul di dashboard saat pemakaian melampaui ambang.',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
               ),
@@ -324,7 +324,7 @@ class _Dashboard extends ConsumerWidget {
           _sectionTitle('Penyimpanan'),
           const SizedBox(height: 10),
           if (info.disks.isEmpty)
-            const Text('Tidak ada data disk.',
+            Text('Tidak ada data disk.',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 13))
           else
             ...info.disks.map((d) => _DiskRow(d)),
@@ -332,7 +332,7 @@ class _Dashboard extends ConsumerWidget {
           _sectionTitle('Jaringan'),
           const SizedBox(height: 10),
           if (info.networks.isEmpty)
-            const Text('Tidak ada interface.',
+            Text('Tidak ada interface.',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 13))
           else
             Wrap(
@@ -364,7 +364,7 @@ class _Dashboard extends ConsumerWidget {
               color: AppTheme.accent.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.monitor_heart_outlined,
+            child: Icon(Icons.monitor_heart_outlined,
                 color: AppTheme.accent, size: 22),
           ),
           const SizedBox(width: 14),
@@ -374,7 +374,7 @@ class _Dashboard extends ConsumerWidget {
               children: [
                 Text(
                   info.hostname.isEmpty ? c.credentials.host : info.hostname,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w700),
@@ -382,7 +382,7 @@ class _Dashboard extends ConsumerWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${info.os.isEmpty ? "" : "${info.os} · "}${c.credentials.username}@${c.credentials.host}:${c.credentials.port}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textMuted, fontSize: 12),
                 ),
               ],
@@ -435,12 +435,12 @@ class _Dashboard extends ConsumerWidget {
             onPressed: c.refreshing ? null : c.refresh,
             tooltip: 'Perbarui',
             icon: c.refreshing
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: AppTheme.accent))
-                : const Icon(Icons.refresh,
+                : Icon(Icons.refresh,
                     size: 18, color: AppTheme.textMuted),
           ),
         ],
@@ -462,7 +462,7 @@ class _Dashboard extends ConsumerWidget {
           .map((s) => PopupMenuItem(
                 value: s,
                 child: Text('$s detik',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppTheme.textPrimary, fontSize: 13)),
               ))
           .toList(),
@@ -475,13 +475,13 @@ class _Dashboard extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.timer_outlined,
+            Icon(Icons.timer_outlined,
                 size: 13, color: AppTheme.textMuted),
             const SizedBox(width: 5),
             Text('${c.intervalSeconds}s',
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppTheme.textMuted, fontSize: 12)),
-            const Icon(Icons.arrow_drop_down,
+            Icon(Icons.arrow_drop_down,
                 size: 16, color: AppTheme.textMuted),
           ],
         ),
@@ -526,7 +526,7 @@ class _Dashboard extends ConsumerWidget {
 
   Widget _sectionTitle(String t) => Text(
         t,
-        style: const TextStyle(
+        style: TextStyle(
             color: AppTheme.textPrimary,
             fontSize: 14,
             fontWeight: FontWeight.w600),
@@ -556,16 +556,16 @@ class _CpuCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.memory, size: 16, color: AppTheme.textMuted),
+              Icon(Icons.memory, size: 16, color: AppTheme.textMuted),
               const SizedBox(width: 6),
-              const Text('CPU',
+              Text('CPU',
                   style: TextStyle(
                       color: AppTheme.textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
               const SizedBox(width: 8),
               Text('${info.cpuCores} core',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textMuted, fontSize: 11)),
               const Spacer(),
               if (info.cpuTemp != null) ...[
@@ -610,7 +610,7 @@ class _CpuCard extends StatelessWidget {
           ),
           if (info.perCore.isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Text('Per-core',
+            Text('Per-core',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 10.5)),
             const SizedBox(height: 6),
             Wrap(
@@ -638,7 +638,7 @@ class _CpuCard extends StatelessWidget {
                 BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 5),
         Text('$label ${pct.toStringAsFixed(0)}%',
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
       ],
     );
   }
@@ -670,7 +670,7 @@ class _CoreBar extends StatelessWidget {
             const SizedBox(height: 2),
             Text('$index',
                 style:
-                    const TextStyle(color: AppTheme.textMuted, fontSize: 9)),
+                    TextStyle(color: AppTheme.textMuted, fontSize: 9)),
           ],
         ),
       ),
@@ -704,10 +704,10 @@ class _MemoryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.sd_storage_outlined,
+              Icon(Icons.sd_storage_outlined,
                   size: 16, color: AppTheme.textMuted),
               const SizedBox(width: 6),
-              const Text('Memory',
+              Text('Memory',
                   style: TextStyle(
                       color: AppTheme.textMuted,
                       fontSize: 12,
@@ -754,7 +754,7 @@ class _MemoryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text('Total ${_kb(info.memTotalKb)}',
-              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
         ],
       ),
     );
@@ -771,7 +771,7 @@ class _MemoryCard extends StatelessWidget {
                 color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 5),
         Text('$label ${_kb(kb)}',
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
       ],
     );
   }
@@ -811,7 +811,7 @@ class _SimpleMeter extends StatelessWidget {
               Icon(icon, size: 16, color: AppTheme.textMuted),
               const SizedBox(width: 6),
               Text(title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
@@ -835,7 +835,7 @@ class _SimpleMeter extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(subtitle,
-              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
         ],
       ),
     );
@@ -869,13 +869,13 @@ class _InfoTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppTheme.textMuted, fontSize: 11)),
                 const SizedBox(height: 1),
                 Text(
                   value.isEmpty ? '-' : value,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500),
@@ -909,10 +909,10 @@ class _DiskRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.storage, size: 15, color: AppTheme.textMuted),
+              Icon(Icons.storage, size: 15, color: AppTheme.textMuted),
               const SizedBox(width: 8),
               Text(disk.mount,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
@@ -920,7 +920,7 @@ class _DiskRow extends StatelessWidget {
               Expanded(
                 child: Text(disk.filesystem,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppTheme.textMuted, fontSize: 11)),
               ),
               Text('${disk.usePercent}%',
@@ -943,7 +943,7 @@ class _DiskRow extends StatelessWidget {
           const SizedBox(height: 7),
           Text(
               '${_kb(disk.usedKb)} terpakai · ${_kb(disk.availKb)} bebas · total ${_kb(disk.sizeKb)}',
-              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
         ],
       ),
     );
@@ -966,16 +966,16 @@ class _NetChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.lan_outlined, size: 15, color: AppTheme.accent),
+          Icon(Icons.lan_outlined, size: 15, color: AppTheme.accent),
           const SizedBox(width: 8),
           Text(net.name,
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppTheme.textMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.w600)),
           const SizedBox(width: 8),
           Text(net.address,
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: 12,
                   fontFamily: 'Menlo')),
@@ -1037,16 +1037,16 @@ class _ProcessTableState extends State<_ProcessTable> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('Hentikan proses?',
+        title: Text('Hentikan proses?',
             style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
         content: Text(
           'PID ${p.pid} · ${p.command}\nKirim sinyal untuk menghentikan proses ini?',
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+          style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Batal',
+            child: Text('Batal',
                 style: TextStyle(color: AppTheme.textMuted)),
           ),
           TextButton(
@@ -1080,7 +1080,7 @@ class _ProcessTableState extends State<_ProcessTable> {
   @override
   Widget build(BuildContext context) {
     if (widget.procs.isEmpty) {
-      return const Text('Tidak ada data proses.',
+      return Text('Tidak ada data proses.',
           style: TextStyle(color: AppTheme.textMuted, fontSize: 13));
     }
     final rows = _filteredSorted;
@@ -1100,7 +1100,7 @@ class _ProcessTableState extends State<_ProcessTable> {
             children: [
               _headerRow(),
               if (rows.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(16),
                   child: Text('Tidak ada proses cocok.',
                       style: TextStyle(
@@ -1114,7 +1114,7 @@ class _ProcessTableState extends State<_ProcessTable> {
         ),
         const SizedBox(height: 6),
         Text('Menampilkan ${rows.length} dari ${widget.procs.length} proses',
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
       ],
     );
   }
@@ -1127,30 +1127,30 @@ class _ProcessTableState extends State<_ProcessTable> {
           height: 34,
           child: TextField(
             onChanged: (v) => setState(() => _query = v),
-            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+            style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
             decoration: InputDecoration(
               hintText: 'Cari nama / user / PID…',
               hintStyle:
-                  const TextStyle(color: AppTheme.textMuted, fontSize: 12.5),
+                  TextStyle(color: AppTheme.textMuted, fontSize: 12.5),
               isDense: true,
               filled: true,
               fillColor: AppTheme.surface,
-              prefixIcon: const Icon(Icons.search,
+              prefixIcon: Icon(Icons.search,
                   size: 15, color: AppTheme.textMuted),
               contentPadding: const EdgeInsets.symmetric(vertical: 8),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppTheme.border),
+                borderSide: BorderSide(color: AppTheme.border),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppTheme.accent),
+                borderSide: BorderSide(color: AppTheme.accent),
               ),
             ),
           ),
         ),
         const SizedBox(width: 14),
-        const Text('Urutkan:',
+        Text('Urutkan:',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
         const SizedBox(width: 8),
         _sortChip('CPU', _ProcSort.cpu),
@@ -1173,7 +1173,7 @@ class _ProcessTableState extends State<_ProcessTable> {
                     size: 13, color: AppTheme.textMuted),
                 const SizedBox(width: 5),
                 Text(_desc ? 'Tertinggi' : 'Terendah',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppTheme.textMuted, fontSize: 12)),
               ],
             ),
@@ -1232,7 +1232,7 @@ class _ProcessTableState extends State<_ProcessTable> {
       );
     }
 
-    const headStyle = TextStyle(
+    final headStyle = TextStyle(
       color: AppTheme.textMuted,
       fontSize: 11,
       fontFamily: 'Menlo',
@@ -1240,17 +1240,17 @@ class _ProcessTableState extends State<_ProcessTable> {
     );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.bg,
         border: Border(bottom: BorderSide(color: AppTheme.border)),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 52, child: Text('PID', style: headStyle)),
-          const SizedBox(width: 92, child: Text('USER', style: headStyle)),
+          SizedBox(width: 52, child: Text('PID', style: headStyle)),
+          SizedBox(width: 92, child: Text('USER', style: headStyle)),
           sortableHeader('CPU%', _ProcSort.cpu, 54),
           sortableHeader('MEM%', _ProcSort.mem, 54),
-          const Expanded(child: Text('COMMAND', style: headStyle)),
+          Expanded(child: Text('COMMAND', style: headStyle)),
           const SizedBox(width: 32),
         ],
       ),
@@ -1258,7 +1258,7 @@ class _ProcessTableState extends State<_ProcessTable> {
   }
 
   Widget _dataRow(ProcessInfo p, {required bool alt}) {
-    const base = TextStyle(
+    final base = TextStyle(
         color: AppTheme.textPrimary, fontSize: 12.5, fontFamily: 'Menlo');
     Color heat(double v) => v >= 50
         ? _red

@@ -121,7 +121,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
       backgroundColor: AppTheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppTheme.border),
+        side: BorderSide(color: AppTheme.border),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
@@ -133,10 +133,10 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.download_outlined,
+                  Icon(Icons.download_outlined,
                       color: AppTheme.accent, size: 20),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Import dari ~/.ssh/config',
                     style: TextStyle(
                         color: AppTheme.textPrimary,
@@ -155,7 +155,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                     onPressed: _importing
                         ? null
                         : () => Navigator.of(context).pop(),
-                    child: const Text('Tutup',
+                    child: Text('Tutup',
                         style: TextStyle(color: AppTheme.textMuted)),
                   ),
                   const SizedBox(width: 8),
@@ -182,8 +182,8 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
 
   Widget _content() {
     if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
+      return Padding(
+        padding: const EdgeInsets.all(24),
         child: Center(
           child: SizedBox(
             width: 20,
@@ -206,7 +206,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
         padding: const EdgeInsets.symmetric(vertical: 20),
         child: Text(
           'Tidak ada host konkret di $_configPath.',
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+          style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
         ),
       );
     }
@@ -216,7 +216,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
       children: [
         Text(
           'Ditemukan ${_entries.length} host:',
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+          style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
         ),
         const SizedBox(height: 8),
         Flexible(
@@ -260,7 +260,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                   }
                 }),
                 activeColor: AppTheme.accent,
-                side: const BorderSide(color: AppTheme.border),
+                side: BorderSide(color: AppTheme.border),
               ),
             ),
             const SizedBox(width: 10),
@@ -276,7 +276,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                       Flexible(
                         child: Text(e.alias,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 color: AppTheme.textPrimary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500)),
@@ -290,7 +290,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                             color: AppTheme.textMuted.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text('sudah ada',
+                          child: Text('sudah ada',
                               style: TextStyle(
                                   color: AppTheme.textMuted, fontSize: 10)),
                         ),
@@ -300,7 +300,7 @@ class _ImportDialogState extends ConsumerState<_ImportDialog> {
                   Text(
                     '${e.user ?? '—'}@${e.hostName}:${e.port}',
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppTheme.textMuted, fontSize: 11),
                   ),
                 ],

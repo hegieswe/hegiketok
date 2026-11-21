@@ -54,7 +54,7 @@ class _StepRow extends StatelessWidget {
     Color color = AppTheme.textMuted;
     switch (step.status) {
       case StepStatus.active:
-        leading = const SizedBox(
+        leading = SizedBox(
           width: 15,
           height: 15,
           child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accent),
@@ -62,7 +62,7 @@ class _StepRow extends StatelessWidget {
         color = AppTheme.textPrimary;
         break;
       case StepStatus.done:
-        leading = const Icon(Icons.check_circle, size: 15, color: AppTheme.success);
+        leading = Icon(Icons.check_circle, size: 15, color: AppTheme.success);
         break;
       case StepStatus.failed:
         leading = const Icon(Icons.cancel, size: 15, color: _red);
@@ -84,7 +84,7 @@ class _StepRow extends StatelessWidget {
               if (step.detail != null)
                 TextSpan(
                   text: '  ·  ${step.detail}',
-                  style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
                 ),
             ]),
             overflow: TextOverflow.ellipsis,
@@ -116,7 +116,7 @@ class HandshakeLoading extends StatelessWidget {
             if (title != null) ...[
               Text(
                 title!,
-                style: const TextStyle(
+                style: TextStyle(
                     color: AppTheme.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600),

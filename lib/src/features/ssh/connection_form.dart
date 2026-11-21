@@ -54,7 +54,7 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
       backgroundColor: AppTheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppTheme.border),
+        side: BorderSide(color: AppTheme.border),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -67,7 +67,7 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
+                  children: [
                     Icon(Icons.cloud_outlined,
                         color: AppTheme.accent, size: 20),
                     SizedBox(width: 8),
@@ -140,7 +140,7 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Batal',
+                      child: Text('Batal',
                           style: TextStyle(color: AppTheme.textMuted)),
                     ),
                     const SizedBox(width: 8),
@@ -177,7 +177,7 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
       children: [
         Text(
           label,
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+          style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
         ),
         const SizedBox(height: 6),
         TextFormField(
@@ -187,11 +187,11 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
           keyboardType: keyboardType,
           validator: validator,
           onFieldSubmitted: onSubmitted,
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+          style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle:
-                const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                TextStyle(color: AppTheme.textMuted, fontSize: 13),
             isDense: true,
             filled: true,
             fillColor: AppTheme.bg,
@@ -200,11 +200,11 @@ class _SshConnectionDialogState extends State<_SshConnectionDialog> {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppTheme.border),
+              borderSide: BorderSide(color: AppTheme.border),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppTheme.accent),
+              borderSide: BorderSide(color: AppTheme.accent),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),

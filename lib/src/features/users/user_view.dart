@@ -62,7 +62,7 @@ class _UserViewState extends State<UserView> {
           return _errorState(c.connectError!, c.connect);
         }
         if (c.loading && c.snapshot == null) {
-          return const _Centered(
+          return _Centered(
             child: SizedBox(
               width: 24,
               height: 24,
@@ -80,7 +80,7 @@ class _UserViewState extends State<UserView> {
           child: Column(
             children: [
               _header(),
-              const Divider(height: 1, color: AppTheme.border),
+              Divider(height: 1, color: AppTheme.border),
               _filterBar(),
               Expanded(child: _list()),
             ],
@@ -99,27 +99,27 @@ class _UserViewState extends State<UserView> {
       color: AppTheme.surface,
       child: Row(
         children: [
-          const Icon(Icons.group_outlined, size: 20, color: AppTheme.accent),
+          Icon(Icons.group_outlined, size: 20, color: AppTheme.accent),
           const SizedBox(width: 10),
-          const Text('Users',
+          Text('Users',
               style: TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600)),
           const SizedBox(width: 10),
           Text('${c.users.length} user · $online online · $sudoers admin',
-              style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
           const Spacer(),
           IconButton(
             onPressed: c.refreshing ? null : c.refresh,
             tooltip: 'Perbarui',
             icon: c.refreshing
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: AppTheme.accent))
-                : const Icon(Icons.refresh, size: 18, color: AppTheme.textMuted),
+                : Icon(Icons.refresh, size: 18, color: AppTheme.textMuted),
           ),
         ],
       ),
@@ -137,7 +137,7 @@ class _UserViewState extends State<UserView> {
               height: 34,
               child: TextField(
                 style:
-                    const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                    TextStyle(color: AppTheme.textPrimary, fontSize: 13),
                 onChanged: (v) => setState(() => _query = v),
                 decoration: InputDecoration(
                   isDense: true,
@@ -145,17 +145,17 @@ class _UserViewState extends State<UserView> {
                   fillColor: AppTheme.surface,
                   hintText: 'Cari user…',
                   hintStyle:
-                      const TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search,
+                      TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                  prefixIcon: Icon(Icons.search,
                       size: 16, color: AppTheme.textMuted),
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
+                    borderSide: BorderSide(color: AppTheme.border),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.accent),
+                    borderSide: BorderSide(color: AppTheme.accent),
                   ),
                 ),
               ),
@@ -198,7 +198,7 @@ class _UserViewState extends State<UserView> {
   Widget _list() {
     final items = _visible();
     if (items.isEmpty) {
-      return const _Centered(
+      return _Centered(
         child: Text('Tidak ada user yang cocok.',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
       );
@@ -222,7 +222,7 @@ class _UserViewState extends State<UserView> {
             width: 360,
             child: Text(msg,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
@@ -298,7 +298,7 @@ class _UserCard extends StatelessWidget {
                     Flexible(
                       child: Text(u.name,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppTheme.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600)),
@@ -313,7 +313,7 @@ class _UserCard extends StatelessWidget {
                 Text(
                   '${u.gecos.isEmpty ? u.home : u.gecos} · ${u.shell}',
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textMuted,
                       fontSize: 11,
                       fontFamily: 'Menlo'),
@@ -326,12 +326,12 @@ class _UserCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text('uid ${u.uid}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textMuted,
                       fontSize: 11,
                       fontFamily: 'Menlo')),
               Text('gid ${u.gid}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textMuted,
                       fontSize: 11,
                       fontFamily: 'Menlo')),

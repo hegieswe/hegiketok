@@ -105,12 +105,12 @@ class _SuggestionRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          const Icon(Icons.bolt, size: 16, color: AppTheme.accent),
+          Icon(Icons.bolt, size: 16, color: AppTheme.accent),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Server terdeteksi di port ${suggestion.port} — teruskan ke localhost?',
-              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12),
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 12),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -122,7 +122,7 @@ class _SuggestionRow extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           IconButton(
-            icon: const Icon(Icons.close, size: 15, color: AppTheme.textMuted),
+            icon: Icon(Icons.close, size: 15, color: AppTheme.textMuted),
             tooltip: 'Abaikan',
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
@@ -156,15 +156,15 @@ class _ActiveChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             forward.label,
-            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12),
+            style: TextStyle(color: AppTheme.textPrimary, fontSize: 12),
           ),
           if (forward.connections > 0) ...[
             const SizedBox(width: 6),
             Text('(${forward.connections})',
-                style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
           ],
           IconButton(
-            icon: const Icon(Icons.stop_circle_outlined,
+            icon: Icon(Icons.stop_circle_outlined,
                 size: 15, color: AppTheme.textMuted),
             tooltip: 'Hentikan forward',
             padding: const EdgeInsets.only(left: 4),

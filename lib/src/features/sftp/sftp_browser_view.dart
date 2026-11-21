@@ -62,14 +62,14 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('Hapus?',
+        title: Text('Hapus?',
             style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
         content: Text('"${entry.filename}" akan dihapus permanen.',
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal',
+            child: Text('Batal',
                 style: TextStyle(color: AppTheme.textMuted)),
           ),
           FilledButton(
@@ -91,18 +91,18 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
         title: Text(title,
-            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
+            style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(color: AppTheme.textPrimary),
+          style: TextStyle(color: AppTheme.textPrimary),
           decoration: InputDecoration(hintText: hint),
           onSubmitted: (v) => Navigator.pop(context, v),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Batal',
+            child: Text('Batal',
                 style: TextStyle(color: AppTheme.textMuted)),
           ),
           FilledButton(
@@ -134,7 +134,7 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
           child: Column(
             children: [
               _toolbar(),
-              const Divider(height: 1, color: AppTheme.border),
+              Divider(height: 1, color: AppTheme.border),
               Expanded(child: _body()),
               if (c.transferStatus != null) _transferBar(),
             ],
@@ -183,21 +183,21 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
             child: TextField(
               controller: _pathCtrl,
               style:
-                  const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                  TextStyle(color: AppTheme.textPrimary, fontSize: 13),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
                 fillColor: AppTheme.surface,
-                prefixIcon: const Icon(Icons.folder_open,
+                prefixIcon: Icon(Icons.folder_open,
                     size: 15, color: AppTheme.textMuted),
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppTheme.border),
+                  borderSide: BorderSide(color: AppTheme.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppTheme.accent),
+                  borderSide: BorderSide(color: AppTheme.accent),
                 ),
               ),
               onSubmitted: c.navigateTo,
@@ -238,7 +238,7 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
       );
     }
     if (c.loading) {
-      return const Center(
+      return Center(
         child: SizedBox(
           width: 22,
           height: 22,
@@ -248,7 +248,7 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
       );
     }
     if (c.entries.isEmpty) {
-      return const Center(
+      return Center(
         child: Text('Folder kosong',
             style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
       );
@@ -280,7 +280,7 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
       child: Row(
         children: [
           if (!isError && !isDone)
-            const SizedBox(
+            SizedBox(
               width: 12,
               height: 12,
               child: CircularProgressIndicator(
@@ -377,14 +377,14 @@ class _EntryTileState extends State<_EntryTile> {
                 child: Text(
                   e.filename,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textPrimary, fontSize: 13),
                 ),
               ),
               if (!isDir)
                 Text(
                   _formatSize(e.attr.size),
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppTheme.textMuted, fontSize: 11),
                 ),
               if (_hover) ...[

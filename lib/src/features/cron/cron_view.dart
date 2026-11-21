@@ -32,7 +32,7 @@ class CronView extends StatelessWidget {
           return _errorState(c.connectError!, c.connect);
         }
         if (c.loading && c.snapshot == null) {
-          return const _Centered(
+          return _Centered(
             child: SizedBox(
               width: 24,
               height: 24,
@@ -50,7 +50,7 @@ class CronView extends StatelessWidget {
           child: Column(
             children: [
               _header(context, c),
-              const Divider(height: 1, color: AppTheme.border),
+              Divider(height: 1, color: AppTheme.border),
               Expanded(child: _list(context, c)),
             ],
           ),
@@ -67,27 +67,27 @@ class CronView extends StatelessWidget {
       color: AppTheme.surface,
       child: Row(
         children: [
-          const Icon(Icons.schedule, size: 20, color: AppTheme.accent),
+          Icon(Icons.schedule, size: 20, color: AppTheme.accent),
           const SizedBox(width: 10),
-          const Text('Cron',
+          Text('Cron',
               style: TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600)),
           const SizedBox(width: 10),
           Text('${c.jobs.length} job · $active aktif',
-              style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
           const Spacer(),
           IconButton(
             onPressed: c.refreshing ? null : c.refresh,
             tooltip: 'Perbarui',
             icon: c.refreshing
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: AppTheme.accent))
-                : const Icon(Icons.refresh, size: 18, color: AppTheme.textMuted),
+                : Icon(Icons.refresh, size: 18, color: AppTheme.textMuted),
           ),
           const SizedBox(width: 6),
           _AddButton(onTap: () => _showEditor(context, c)),
@@ -102,9 +102,9 @@ class CronView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.schedule_outlined, size: 34, color: AppTheme.border),
+            Icon(Icons.schedule_outlined, size: 34, color: AppTheme.border),
             const SizedBox(height: 10),
-            const Text('Belum ada cron job.',
+            Text('Belum ada cron job.',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
             const SizedBox(height: 14),
             OutlinedButton.icon(
@@ -142,7 +142,7 @@ class CronView extends StatelessWidget {
             width: 360,
             child: Text(msg,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
@@ -180,11 +180,11 @@ class _AddButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppTheme.accent),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.add, size: 15, color: AppTheme.accent),
-            SizedBox(width: 5),
+            const SizedBox(width: 5),
             Text('Tambah',
                 style: TextStyle(
                     color: AppTheme.accent,
@@ -218,14 +218,14 @@ class _JobCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('Hapus cron job?',
+        title: Text('Hapus cron job?',
             style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
         content: Text(job.command,
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal',
+            child: Text('Batal',
                 style: TextStyle(color: AppTheme.textMuted)),
           ),
           FilledButton(
@@ -279,7 +279,7 @@ class _JobCard extends StatelessWidget {
                     Flexible(
                       child: Text(describeCron(job.schedule),
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppTheme.textMuted, fontSize: 11)),
                     ),
                     if (!on) ...[
@@ -291,7 +291,7 @@ class _JobCard extends StatelessWidget {
                           color: AppTheme.textMuted.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('nonaktif',
+                        child: Text('nonaktif',
                             style: TextStyle(
                                 color: AppTheme.textMuted, fontSize: 10)),
                       ),
@@ -419,7 +419,7 @@ class _CronEditorState extends State<_CronEditor> {
       backgroundColor: AppTheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppTheme.border),
+        side: BorderSide(color: AppTheme.border),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -431,10 +431,10 @@ class _CronEditorState extends State<_CronEditor> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.schedule, size: 20, color: AppTheme.accent),
+                  Icon(Icons.schedule, size: 20, color: AppTheme.accent),
                   const SizedBox(width: 8),
                   Text(_isEdit ? 'Edit Cron Job' : 'Cron Job Baru',
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: AppTheme.textPrimary,
                           fontSize: 17,
                           fontWeight: FontWeight.w600)),
@@ -462,7 +462,7 @@ class _CronEditorState extends State<_CronEditor> {
                               border: Border.all(color: AppTheme.border),
                             ),
                             child: Text(e.key,
-                                style: const TextStyle(
+                                style: TextStyle(
                                     color: AppTheme.textMuted, fontSize: 11)),
                           ),
                         ))
@@ -493,7 +493,7 @@ class _CronEditorState extends State<_CronEditor> {
                   TextButton(
                     onPressed:
                         _saving ? null : () => Navigator.of(context).pop(),
-                    child: const Text('Batal',
+                    child: Text('Batal',
                         style: TextStyle(color: AppTheme.textMuted)),
                   ),
                   const SizedBox(width: 8),
@@ -519,7 +519,7 @@ class _CronEditorState extends State<_CronEditor> {
   }
 
   Widget _label(String t) =>
-      Text(t, style: const TextStyle(color: AppTheme.textMuted, fontSize: 12));
+      Text(t, style: TextStyle(color: AppTheme.textMuted, fontSize: 12));
 
   Widget _field(TextEditingController ctrl, String hint, {bool mono = false}) {
     return TextField(
@@ -531,7 +531,7 @@ class _CronEditorState extends State<_CronEditor> {
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+        hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
         isDense: true,
         filled: true,
         fillColor: AppTheme.bg,
@@ -539,11 +539,11 @@ class _CronEditorState extends State<_CronEditor> {
             const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.border),
+          borderSide: BorderSide(color: AppTheme.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.accent),
+          borderSide: BorderSide(color: AppTheme.accent),
         ),
       ),
     );

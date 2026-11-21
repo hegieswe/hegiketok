@@ -5,8 +5,8 @@ import '../../theme/app_theme.dart';
 import 'settings_providers.dart';
 import 'terminal_themes.dart';
 
-/// Panel pengaturan tampilan (muncul sebagai drawer kanan): pemilih tema
-/// terminal dengan pratinjau langsung + ukuran font.
+/// Panel pengaturan tampilan (drawer kanan): mode tema aplikasi, ukuran font,
+/// dan pemilih tema terminal dengan pratinjau langsung.
 class SettingsPanel extends ConsumerWidget {
   const SettingsPanel({super.key});
 
@@ -16,47 +16,51 @@ class SettingsPanel extends ConsumerWidget {
     final notifier = ref.read(settingsProvider.notifier);
 
     return Drawer(
-      width: 340,
+      width: 348,
       backgroundColor: AppTheme.surface,
-      shape: const Border(left: BorderSide(color: AppTheme.border)),
+      shape: Border(left: BorderSide(color: AppTheme.border)),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 12, 10),
+              padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
               child: Row(
                 children: [
-                  const Icon(Icons.palette_outlined,
-                      size: 18, color: AppTheme.accent),
-                  const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Tampilan',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close,
+                    icon: Icon(Icons.close_rounded,
                         size: 18, color: AppTheme.textMuted),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, color: AppTheme.border),
+            Divider(height: 1, color: AppTheme.border),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
                 children: [
+                  _sectionLabel('MODE TEMA'),
+                  const SizedBox(height: 10),
+                  _ModeToggle(
+                    mode: settings.themeMode,
+                    onChanged: notifier.setThemeMode,
+                  ),
+                  const SizedBox(height: 24),
                   _sectionLabel('UKURAN FONT'),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.text_fields,
+                      Icon(Icons.text_fields_rounded,
                           size: 16, color: AppTheme.textMuted),
                       Expanded(
                         child: Slider(
@@ -64,28 +68,26 @@ class SettingsPanel extends ConsumerWidget {
                           min: 10,
                           max: 22,
                           divisions: 12,
-                          activeColor: AppTheme.accent,
                           label: settings.fontSize.toStringAsFixed(0),
                           onChanged: notifier.setFontSize,
                         ),
                       ),
                       SizedBox(
-                        width: 34,
+                        width: 38,
                         child: Text(
                           '${settings.fontSize.toStringAsFixed(0)} pt',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppTheme.textPrimary, fontSize: 12),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 22),
                   _sectionLabel('TEMA TERMINAL'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   for (final preset in kTerminalThemes)
                     _ThemeCard(
                       preset: preset,
-                      fontSize: settings.fontSize,
                       selected: preset.name == settings.themeName,
                       onTap: () => notifier.setTheme(preset.name),
                     ),
@@ -100,13 +102,70 @@ class SettingsPanel extends ConsumerWidget {
 
   Widget _sectionLabel(String text) => Text(
         text,
-        style: const TextStyle(
-          color: AppTheme.textMuted,
+        style: TextStyle(
+          color: AppTheme.textFaint,
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.7,
+          letterSpacing: 0.9,
         ),
       );
+}
+
+/// Segmented control untuk memilih mode tema aplikasi.
+class _ModeToggle extends StatelessWidget {
+  const _ModeToggle({required this.mode, required this.onChanged});
+
+  final ThemeMode mode;
+  final ValueChanged<ThemeMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceInput,
+        borderRadius: BorderRadius.circular(AppTheme.rMd),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: [
+          _seg(ThemeMode.system, Icons.brightness_auto_outlined, 'Sistem'),
+          _seg(ThemeMode.light, Icons.light_mode_outlined, 'Terang'),
+          _seg(ThemeMode.dark, Icons.dark_mode_outlined, 'Gelap'),
+        ],
+      ),
+    );
+  }
+
+  Widget _seg(ThemeMode m, IconData icon, String label) {
+    final selected = mode == m;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onChanged(m),
+        child: AnimatedContainer(
+          duration: AppTheme.fast,
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.rSm),
+          ),
+          child: Column(
+            children: [
+              Icon(icon,
+                  size: 16,
+                  color: selected ? AppTheme.onAccent : AppTheme.textMuted),
+              const SizedBox(height: 4),
+              Text(label,
+                  style: TextStyle(
+                      color: selected ? AppTheme.onAccent : AppTheme.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ThemeCard extends StatelessWidget {
@@ -114,13 +173,11 @@ class _ThemeCard extends StatelessWidget {
     required this.preset,
     required this.selected,
     required this.onTap,
-    required this.fontSize,
   });
 
   final TerminalThemePreset preset;
   final bool selected;
   final VoidCallback onTap;
-  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -128,10 +185,10 @@ class _ThemeCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTheme.rMd),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppTheme.rMd),
             border: Border.all(
               color: selected ? AppTheme.accent : AppTheme.border,
               width: selected ? 2 : 1,
@@ -141,7 +198,6 @@ class _ThemeCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Pratinjau: latar tema + baris prompt palsu + swatch warna.
               Container(
                 height: 58,
                 color: preset.background,
@@ -188,11 +244,8 @@ class _ThemeCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Baris nama + indikator terpilih.
               Container(
-                color: selected
-                    ? AppTheme.accent.withValues(alpha: 0.12)
-                    : AppTheme.bg,
+                color: selected ? AppTheme.accentSoft : AppTheme.bg,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
@@ -200,9 +253,8 @@ class _ThemeCard extends StatelessWidget {
                     Text(
                       preset.name,
                       style: TextStyle(
-                        color: selected
-                            ? AppTheme.accent
-                            : AppTheme.textPrimary,
+                        color:
+                            selected ? AppTheme.accent : AppTheme.textPrimary,
                         fontSize: 13,
                         fontWeight:
                             selected ? FontWeight.w600 : FontWeight.w500,
@@ -210,7 +262,7 @@ class _ThemeCard extends StatelessWidget {
                     ),
                     const Spacer(),
                     if (selected)
-                      const Icon(Icons.check_circle,
+                      Icon(Icons.check_circle,
                           size: 16, color: AppTheme.accent),
                   ],
                 ),

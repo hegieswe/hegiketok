@@ -149,7 +149,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
       backgroundColor: AppTheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppTheme.border),
+        side: BorderSide(color: AppTheme.border),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
@@ -163,12 +163,12 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.dns_outlined,
+                    Icon(Icons.dns_outlined,
                         color: AppTheme.accent, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       _isEdit ? 'Edit Host' : 'Host Baru',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
@@ -248,7 +248,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                       onPressed: _saving
                           ? null
                           : () => Navigator.of(context).pop(false),
-                      child: const Text('Batal',
+                      child: Text('Batal',
                           style: TextStyle(color: AppTheme.textMuted)),
                     ),
                     const SizedBox(width: 8),
@@ -339,9 +339,9 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
       children: [
         Row(
           children: [
-            const Icon(Icons.alt_route, size: 14, color: AppTheme.textMuted),
+            Icon(Icons.alt_route, size: 14, color: AppTheme.textMuted),
             const SizedBox(width: 6),
-            const Text('Jump host / bastion (opsional)',
+            Text('Jump host / bastion (opsional)',
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
           ],
         ),
@@ -358,13 +358,13 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
               value: _jumpHostId,
               isExpanded: true,
               dropdownColor: AppTheme.surface,
-              icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textMuted),
+              icon: Icon(Icons.arrow_drop_down, color: AppTheme.textMuted),
               style:
-                  const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
-              hint: const Text('Koneksi langsung (tanpa bastion)',
+                  TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+              hint: Text('Koneksi langsung (tanpa bastion)',
                   style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
               items: [
-                const DropdownMenuItem<String?>(
+                DropdownMenuItem<String?>(
                   value: null,
                   child: Text('Koneksi langsung (tanpa bastion)',
                       style:
@@ -382,8 +382,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
           ),
         ),
         if (options.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
             child: Text(
               'Simpan host lain dulu untuk dipakai sebagai bastion.',
               style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
@@ -485,18 +485,18 @@ class _LabeledField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
           obscureText: obscure,
           keyboardType: keyboardType,
           validator: validator,
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+          style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle:
-                const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                TextStyle(color: AppTheme.textMuted, fontSize: 13),
             isDense: true,
             filled: true,
             fillColor: AppTheme.bg,
@@ -505,11 +505,11 @@ class _LabeledField extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppTheme.border),
+              borderSide: BorderSide(color: AppTheme.border),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppTheme.accent),
+              borderSide: BorderSide(color: AppTheme.accent),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
