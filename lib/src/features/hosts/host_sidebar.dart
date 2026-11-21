@@ -8,10 +8,17 @@ import 'host_editor.dart';
 
 /// Panel kiri berisi daftar host SSH tersimpan.
 class HostSidebar extends ConsumerWidget {
-  const HostSidebar({super.key, required this.onConnect});
+  const HostSidebar({
+    super.key,
+    required this.onConnect,
+    required this.onOpenSftp,
+  });
 
-  /// Dipanggil saat pengguna memilih sebuah host untuk dikoneksikan.
+  /// Dipanggil saat pengguna memilih sebuah host untuk dikoneksikan (terminal).
   final void Function(SshHost host) onConnect;
+
+  /// Dipanggil saat pengguna ingin membuka browser SFTP untuk sebuah host.
+  final void Function(SshHost host) onOpenSftp;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -77,6 +84,7 @@ class HostSidebar extends ConsumerWidget {
                       itemBuilder: (_, i) => _HostTile(
                         host: hosts[i],
                         onConnect: () => onConnect(hosts[i]),
+                        onOpenSftp: () => onOpenSftp(hosts[i]),
                         onEdit: () =>
                             showHostEditor(context, existing: hosts[i]),
                         onDelete: () => _confirmDelete(context, ref, hosts[i]),
@@ -153,12 +161,14 @@ class _HostTile extends StatefulWidget {
   const _HostTile({
     required this.host,
     required this.onConnect,
+    required this.onOpenSftp,
     required this.onEdit,
     required this.onDelete,
   });
 
   final SshHost host;
   final VoidCallback onConnect;
+  final VoidCallback onOpenSftp;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -213,6 +223,11 @@ class _HostTileState extends State<_HostTile> {
                 ),
               ),
               if (_hover) ...[
+                _IconBtn(
+                  icon: Icons.folder_outlined,
+                  tooltip: 'Buka SFTP (file manager)',
+                  onTap: widget.onOpenSftp,
+                ),
                 _IconBtn(
                   icon: Icons.edit_outlined,
                   tooltip: 'Edit',

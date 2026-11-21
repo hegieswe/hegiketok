@@ -9,5 +9,8 @@
 	<false/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- Diperlukan file_picker untuk dialog pilih/simpan file (SFTP transfer). -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
 </dict>
 </plist>

@@ -4,16 +4,17 @@ import 'package:material_ui/material_ui.dart';
 import '../../data/host_providers.dart';
 import '../../models/ssh_credentials.dart';
 import '../../models/ssh_host.dart';
-import '../../session/terminal_session.dart';
+import '../../session/workspace_tab.dart';
 import '../../theme/app_theme.dart';
 import '../hosts/host_sidebar.dart';
+import '../sftp/sftp_tab.dart';
 import '../ssh/connection_form.dart';
 import '../ssh/ssh_terminal_session.dart';
 import '../terminal/local_terminal_session.dart';
-import '../terminal/session_view.dart';
+import '../terminal/terminal_tab.dart';
 
 /// Layar utama: sidebar host tersimpan + workspace ber-tab yang menampung
-/// banyak sesi terminal (shell lokal + koneksi SSH) sekaligus.
+/// terminal lokal, koneksi SSH, dan browser file SFTP sekaligus.
 class WorkspaceScreen extends ConsumerStatefulWidget {
   const WorkspaceScreen({super.key});
 
@@ -22,7 +23,7 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
-  final List<TerminalSession> _sessions = [];
+  final List<WorkspaceTab> _tabs = [];
   int _active = 0;
   bool _showSidebar = true;
 
@@ -34,31 +35,30 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   @override
   void dispose() {
-    for (final s in _sessions) {
-      s.dispose();
+    for (final t in _tabs) {
+      t.dispose();
     }
     super.dispose();
   }
 
-  void _addSession(TerminalSession session) {
+  void _addTab(WorkspaceTab tab) {
     setState(() {
-      _sessions.add(session);
-      _active = _sessions.length - 1;
+      _tabs.add(tab);
+      _active = _tabs.length - 1;
     });
   }
 
-  void _openLocal() => _addSession(LocalTerminalSession()..start());
+  void _openLocal() => _addTab(TerminalTab(LocalTerminalSession()..start()));
 
   Future<void> _openSsh() async {
     final creds = await showSshConnectionForm(context);
     if (creds == null) return;
-    _addSession(SshTerminalSession(creds)..start());
+    _addTab(TerminalTab(SshTerminalSession(creds)..start()));
   }
 
-  /// Connect ke host tersimpan: baca rahasia dari Keychain, lalu buka sesi.
-  Future<void> _openSavedHost(SshHost host) async {
+  Future<SshCredentials> _credentialsFor(SshHost host) async {
     final secret = await ref.read(hostRepositoryProvider).loadSecret(host.id);
-    final creds = SshCredentials(
+    return SshCredentials(
       host: host.host,
       port: host.port,
       username: host.username,
@@ -68,16 +68,25 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           host.authMethod == SshAuthMethod.key ? secret.privateKey : null,
       passphrase: secret.passphrase,
     );
-    _addSession(SshTerminalSession(creds)..start());
+  }
+
+  /// Buka terminal SSH dari host tersimpan.
+  Future<void> _openSavedHost(SshHost host) async {
+    final creds = await _credentialsFor(host);
+    _addTab(TerminalTab(SshTerminalSession(creds)..start()));
+  }
+
+  /// Buka browser SFTP dari host tersimpan.
+  Future<void> _openSftp(SshHost host) async {
+    final creds = await _credentialsFor(host);
+    _addTab(SftpTab(creds, label: host.label));
   }
 
   void _close(int index) {
-    _sessions[index].dispose();
+    _tabs[index].dispose();
     setState(() {
-      _sessions.removeAt(index);
-      if (_active >= _sessions.length) {
-        _active = _sessions.length - 1;
-      }
+      _tabs.removeAt(index);
+      if (_active >= _tabs.length) _active = _tabs.length - 1;
     });
   }
 
@@ -96,26 +105,29 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           Expanded(
             child: Row(
               children: [
-                if (_showSidebar) HostSidebar(onConnect: _openSavedHost),
+                if (_showSidebar)
+                  HostSidebar(
+                    onConnect: _openSavedHost,
+                    onOpenSftp: _openSftp,
+                  ),
                 Expanded(
                   child: Column(
                     children: [
                       _TabBar(
-                        sessions: _sessions,
+                        tabs: _tabs,
                         active: _active,
                         onSelect: (i) => setState(() => _active = i),
                         onClose: _close,
                         onNewLocal: _openLocal,
                       ),
                       Expanded(
-                        child: _sessions.isEmpty
+                        child: _tabs.isEmpty
                             ? _EmptyState(
                                 onNewLocal: _openLocal, onNewSsh: _openSsh)
                             : IndexedStack(
                                 index: _active,
                                 children: [
-                                  for (final s in _sessions)
-                                    SessionView(s.terminal),
+                                  for (final t in _tabs) t.build(context),
                                 ],
                               ),
                       ),
@@ -156,11 +168,8 @@ class _TitleBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(
-              showSidebar ? Icons.menu_open : Icons.menu,
-              size: 18,
-              color: AppTheme.textMuted,
-            ),
+            icon: Icon(showSidebar ? Icons.menu_open : Icons.menu,
+                size: 18, color: AppTheme.textMuted),
             tooltip: 'Tampilkan/sembunyikan daftar host',
             onPressed: onToggleSidebar,
           ),
@@ -170,25 +179,21 @@ class _TitleBar extends StatelessWidget {
           const Text(
             'Nexus Terminal',
             style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+                color: AppTheme.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600),
           ),
           const Spacer(),
           _ActionButton(icon: Icons.add, label: 'Local', onTap: onNewLocal),
           const SizedBox(width: 8),
           _ActionButton(
-            icon: Icons.cloud_outlined,
-            label: 'SSH',
-            primary: true,
-            onTap: onNewSsh,
-          ),
+              icon: Icons.cloud_outlined,
+              label: 'SSH',
+              primary: true,
+              onTap: onNewSsh),
           const SizedBox(width: 12),
-          const Text(
-            'local-first · tanpa cloud',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
-          ),
+          const Text('local-first · tanpa cloud',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
         ],
       ),
     );
@@ -220,7 +225,8 @@ class _ActionButton extends StatelessWidget {
               ? AppTheme.accent.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: primary ? AppTheme.accent : AppTheme.border),
+          border:
+              Border.all(color: primary ? AppTheme.accent : AppTheme.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -229,14 +235,11 @@ class _ActionButton extends StatelessWidget {
                 size: 15,
                 color: primary ? AppTheme.accent : AppTheme.textMuted),
             const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: primary ? AppTheme.accent : AppTheme.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    color: primary ? AppTheme.accent : AppTheme.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -246,14 +249,14 @@ class _ActionButton extends StatelessWidget {
 
 class _TabBar extends StatelessWidget {
   const _TabBar({
-    required this.sessions,
+    required this.tabs,
     required this.active,
     required this.onSelect,
     required this.onClose,
     required this.onNewLocal,
   });
 
-  final List<TerminalSession> sessions;
+  final List<WorkspaceTab> tabs;
   final int active;
   final ValueChanged<int> onSelect;
   final ValueChanged<int> onClose;
@@ -261,7 +264,7 @@ class _TabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (sessions.isEmpty) return const SizedBox.shrink();
+    if (tabs.isEmpty) return const SizedBox.shrink();
     return Container(
       height: 38,
       decoration: const BoxDecoration(
@@ -273,9 +276,9 @@ class _TabBar extends StatelessWidget {
           Expanded(
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: sessions.length,
+              itemCount: tabs.length,
               itemBuilder: (_, i) => _TabItem(
-                session: sessions[i],
+                tab: tabs[i],
                 selected: i == active,
                 onTap: () => onSelect(i),
                 onClose: () => onClose(i),
@@ -295,13 +298,13 @@ class _TabBar extends StatelessWidget {
 
 class _TabItem extends StatelessWidget {
   const _TabItem({
-    required this.session,
+    required this.tab,
     required this.selected,
     required this.onTap,
     required this.onClose,
   });
 
-  final TerminalSession session;
+  final WorkspaceTab tab;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onClose;
@@ -311,35 +314,32 @@ class _TabItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(minWidth: 120, maxWidth: 220),
+        constraints: const BoxConstraints(minWidth: 120, maxWidth: 240),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: selected ? AppTheme.surface : Colors.transparent,
           border: Border(
             bottom: BorderSide(
-              color: selected ? AppTheme.accent : Colors.transparent,
-              width: 2,
-            ),
+                color: selected ? AppTheme.accent : Colors.transparent,
+                width: 2),
             right: const BorderSide(color: AppTheme.border),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              session.isLocal ? Icons.terminal_rounded : Icons.cloud_outlined,
-              size: 13,
-              color: selected ? AppTheme.accent : AppTheme.textMuted,
-            ),
+            Icon(tab.icon,
+                size: 13,
+                color: selected ? AppTheme.accent : AppTheme.textMuted),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                session.title,
+                tab.title,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? AppTheme.textPrimary : AppTheme.textMuted,
-                  fontSize: 12,
-                ),
+                    color:
+                        selected ? AppTheme.textPrimary : AppTheme.textMuted,
+                    fontSize: 12),
               ),
             ),
             const SizedBox(width: 6),
@@ -370,10 +370,8 @@ class _EmptyState extends StatelessWidget {
         children: [
           const Icon(Icons.terminal_rounded, size: 48, color: AppTheme.border),
           const SizedBox(height: 16),
-          const Text(
-            'Tidak ada sesi terbuka',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
-          ),
+          const Text('Tidak ada sesi terbuka',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
           const SizedBox(height: 20),
           Row(
             mainAxisSize: MainAxisSize.min,
