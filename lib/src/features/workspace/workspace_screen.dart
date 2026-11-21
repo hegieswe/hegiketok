@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../docker/docker_tab.dart';
 import '../hosts/host_sidebar.dart';
 import '../server_info/server_info_tab.dart';
+import '../services/service_tab.dart';
 import '../settings/settings_panel.dart';
 import '../sftp/sftp_tab.dart';
 import '../ssh/connection_form.dart';
@@ -133,6 +134,12 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     _addTab(DockerTab(creds, label: host.label));
   }
 
+  /// Buka panel service systemd dari host tersimpan.
+  Future<void> _openServices(SshHost host) async {
+    final creds = await _credentialsFor(host);
+    _addTab(ServiceTab(creds, label: host.label));
+  }
+
   void _close(int index) {
     _tabs[index].dispose();
     setState(() {
@@ -165,6 +172,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     onOpenSftp: _openSftp,
                     onOpenInfo: _openInfo,
                     onOpenDocker: _openDocker,
+                    onOpenServices: _openServices,
                   ),
                 Expanded(
                   child: Column(

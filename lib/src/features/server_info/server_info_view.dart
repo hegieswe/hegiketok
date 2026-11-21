@@ -1,7 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
+import '../settings/settings_providers.dart';
+import 'server_alerts.dart';
 import 'server_info.dart';
 import 'server_info_controller.dart';
 
@@ -92,19 +95,176 @@ class _Centered extends StatelessWidget {
       Container(color: AppTheme.bg, child: Center(child: child));
 }
 
-class _Dashboard extends StatelessWidget {
+/// Banner merah daftar peringatan ambang yang terlampaui.
+class _AlertsBanner extends StatelessWidget {
+  const _AlertsBanner({required this.alerts});
+  final List<ServerAlert> alerts;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _red.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _red.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, size: 18, color: _red),
+              const SizedBox(width: 8),
+              Text(
+                '${alerts.length} peringatan ambang terlampaui',
+                style: const TextStyle(
+                    color: _red, fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final a in alerts)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bg,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _red.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(a.message,
+                      style:
+                          const TextStyle(color: _red, fontSize: 12)),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dialog pengaturan ambang peringatan CPU/Memory/Disk (persisten via settings).
+class _ThresholdDialog extends ConsumerWidget {
+  const _ThresholdDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider);
+    final notifier = ref.read(settingsProvider.notifier);
+
+    Widget slider(String label, double value, ValueChanged<double> onChanged) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      color: AppTheme.textPrimary, fontSize: 13)),
+              const Spacer(),
+              Text('${value.toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                      color: AppTheme.accent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+          Slider(
+            value: value,
+            min: 50,
+            max: 99,
+            divisions: 49,
+            activeColor: AppTheme.accent,
+            onChanged: onChanged,
+          ),
+        ],
+      );
+    }
+
+    return Dialog(
+      backgroundColor: AppTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.notifications_active,
+                      size: 20, color: AppTheme.accent),
+                  const SizedBox(width: 8),
+                  const Text('Ambang Peringatan',
+                      style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Peringatan muncul di dashboard saat pemakaian melampaui ambang.',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              slider('CPU', s.cpuAlert, notifier.setCpuAlert),
+              slider('Memory', s.memAlert, notifier.setMemAlert),
+              slider('Disk', s.diskAlert, notifier.setDiskAlert),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style:
+                      FilledButton.styleFrom(backgroundColor: AppTheme.accent),
+                  child: const Text('Selesai'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Dashboard extends ConsumerWidget {
   const _Dashboard({required this.controller});
   final ServerInfoController controller;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final info = controller.info!;
+    final settings = ref.watch(settingsProvider);
+    final alerts = computeAlerts(
+      info,
+      cpu: settings.cpuAlert,
+      mem: settings.memAlert,
+      disk: settings.diskAlert,
+    );
     return Container(
       color: AppTheme.bg,
       child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _header(context, info),
+          _header(context, ref, info, alerts.length),
+          if (alerts.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _AlertsBanner(alerts: alerts),
+          ],
           const SizedBox(height: 18),
           Wrap(
             spacing: 14,
@@ -185,7 +345,8 @@ class _Dashboard extends StatelessWidget {
     );
   }
 
-  Widget _header(BuildContext context, ServerInfo info) {
+  Widget _header(
+      BuildContext context, WidgetRef ref, ServerInfo info, int alertCount) {
     final c = controller;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -227,6 +388,41 @@ class _Dashboard extends StatelessWidget {
               ],
             ),
           ),
+          IconButton(
+            onPressed: () => _showThresholdDialog(context, ref),
+            tooltip: 'Ambang peringatan',
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  alertCount > 0
+                      ? Icons.notifications_active
+                      : Icons.notifications_outlined,
+                  size: 18,
+                  color: alertCount > 0 ? _red : AppTheme.textMuted,
+                ),
+                if (alertCount > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration:
+                          const BoxDecoration(color: _red, shape: BoxShape.circle),
+                      constraints:
+                          const BoxConstraints(minWidth: 14, minHeight: 14),
+                      child: Text('$alertCount',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
           if (c.autoRefresh) _intervalSelector(c),
           const SizedBox(width: 8),
           _toggleChip(
@@ -250,6 +446,10 @@ class _Dashboard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showThresholdDialog(BuildContext context, WidgetRef ref) {
+    showDialog(context: context, builder: (_) => const _ThresholdDialog());
   }
 
   Widget _intervalSelector(ServerInfoController c) {

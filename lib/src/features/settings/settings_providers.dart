@@ -8,14 +8,32 @@ class AppSettings {
   const AppSettings({
     this.themeName = kDefaultThemeName,
     this.fontSize = 14,
+    this.cpuAlert = 90,
+    this.memAlert = 90,
+    this.diskAlert = 90,
   });
 
   final String themeName;
   final double fontSize;
 
-  AppSettings copyWith({String? themeName, double? fontSize}) => AppSettings(
+  /// Ambang peringatan (persen) untuk CPU, memory, dan disk pada dashboard.
+  final double cpuAlert;
+  final double memAlert;
+  final double diskAlert;
+
+  AppSettings copyWith({
+    String? themeName,
+    double? fontSize,
+    double? cpuAlert,
+    double? memAlert,
+    double? diskAlert,
+  }) =>
+      AppSettings(
         themeName: themeName ?? this.themeName,
         fontSize: fontSize ?? this.fontSize,
+        cpuAlert: cpuAlert ?? this.cpuAlert,
+        memAlert: memAlert ?? this.memAlert,
+        diskAlert: diskAlert ?? this.diskAlert,
       );
 }
 
@@ -35,6 +53,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
     return AppSettings(
       themeName: _prefs.getString('themeName') ?? kDefaultThemeName,
       fontSize: _prefs.getDouble('fontSize') ?? 14,
+      cpuAlert: _prefs.getDouble('cpuAlert') ?? 90,
+      memAlert: _prefs.getDouble('memAlert') ?? 90,
+      diskAlert: _prefs.getDouble('diskAlert') ?? 90,
     );
   }
 
@@ -46,5 +67,20 @@ class SettingsNotifier extends Notifier<AppSettings> {
   void setFontSize(double size) {
     _prefs.setDouble('fontSize', size);
     state = state.copyWith(fontSize: size);
+  }
+
+  void setCpuAlert(double v) {
+    _prefs.setDouble('cpuAlert', v);
+    state = state.copyWith(cpuAlert: v);
+  }
+
+  void setMemAlert(double v) {
+    _prefs.setDouble('memAlert', v);
+    state = state.copyWith(memAlert: v);
+  }
+
+  void setDiskAlert(double v) {
+    _prefs.setDouble('diskAlert', v);
+    state = state.copyWith(diskAlert: v);
   }
 }

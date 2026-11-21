@@ -15,6 +15,7 @@ class HostSidebar extends ConsumerWidget {
     required this.onOpenSftp,
     required this.onOpenInfo,
     required this.onOpenDocker,
+    required this.onOpenServices,
   });
 
   /// Dipanggil saat pengguna memilih sebuah host untuk dikoneksikan (terminal).
@@ -28,6 +29,9 @@ class HostSidebar extends ConsumerWidget {
 
   /// Dipanggil saat pengguna ingin membuka panel Docker.
   final void Function(SshHost host) onOpenDocker;
+
+  /// Dipanggil saat pengguna ingin membuka panel service systemd.
+  final void Function(SshHost host) onOpenServices;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -101,6 +105,7 @@ class HostSidebar extends ConsumerWidget {
                         onOpenSftp: () => onOpenSftp(hosts[i]),
                         onOpenInfo: () => onOpenInfo(hosts[i]),
                         onOpenDocker: () => onOpenDocker(hosts[i]),
+                        onOpenServices: () => onOpenServices(hosts[i]),
                         onEdit: () =>
                             showHostEditor(context, existing: hosts[i]),
                         onDelete: () => _confirmDelete(context, ref, hosts[i]),
@@ -180,6 +185,7 @@ class _HostTile extends StatefulWidget {
     required this.onOpenSftp,
     required this.onOpenInfo,
     required this.onOpenDocker,
+    required this.onOpenServices,
     required this.onEdit,
     required this.onDelete,
   });
@@ -189,6 +195,7 @@ class _HostTile extends StatefulWidget {
   final VoidCallback onOpenSftp;
   final VoidCallback onOpenInfo;
   final VoidCallback onOpenDocker;
+  final VoidCallback onOpenServices;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -263,6 +270,11 @@ class _HostTileState extends State<_HostTile> {
                   icon: Icons.directions_boat_filled_outlined,
                   tooltip: 'Docker (container, logs…)',
                   onTap: widget.onOpenDocker,
+                ),
+                _IconBtn(
+                  icon: Icons.settings_suggest_outlined,
+                  tooltip: 'Services (systemd)',
+                  onTap: widget.onOpenServices,
                 ),
                 _IconBtn(
                   icon: Icons.folder_outlined,
