@@ -177,7 +177,7 @@ class _TitleBar extends StatelessWidget {
           const Icon(Icons.terminal_rounded, size: 18, color: AppTheme.accent),
           const SizedBox(width: 8),
           const Text(
-            'Nexus Terminal',
+            'HegiKetok',
             style: TextStyle(
                 color: AppTheme.textPrimary,
                 fontSize: 14,

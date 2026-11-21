@@ -1,5 +1,5 @@
 name: nexus_term
-description: "A new Flutter project."
+description: "HegiKetok — a fast, local-first, open-source SSH & terminal client."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

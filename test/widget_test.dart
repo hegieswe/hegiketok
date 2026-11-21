@@ -1,4 +1,4 @@
-// Test dasar untuk Nexus Terminal.
+// Test dasar untuk HegiKetok.
 //
 // Catatan: TerminalScreen menyalakan sesi PTY (shell asli) yang bergantung
 // pada platform, sehingga tidak cocok dijalankan di lingkungan unit test

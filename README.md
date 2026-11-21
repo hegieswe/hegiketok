@@ -1,6 +1,6 @@
 <div align="center">
 
-# Nexus Terminal
+# HegiKetok
 
 **A fast, local-first, open-source SSH & terminal client for every platform.**
 
@@ -10,17 +10,19 @@ Built with Flutter. No subscription. No mandatory cloud. No vendor lock-in.
 ![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20mobile%20%7C%20web-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
+<sub>The name blends the maker's name *Hegi* with the Sundanese word *ketok* ("to knock") — like knocking on a server's door to be let in.</sub>
+
 </div>
 
 ---
 
-## Why Nexus Terminal?
+## Why HegiKetok?
 
 Most polished SSH clients hide essential features behind a subscription, store your
-connection data on their servers, and lock you into their ecosystem. Nexus Terminal
+connection data on their servers, and lock you into their ecosystem. HegiKetok
 is built on the opposite principles:
 
-| Common pain point | Nexus Terminal's answer |
+| Common pain point | HegiKetok's answer |
 | --- | --- |
 | Core features behind a paywall | **Everything is free & open-source** |
 | Connection data lives in a vendor cloud | **Local-first** — your data stays on your device |
@@ -70,7 +72,7 @@ is built on the opposite principles:
 
 ```bash
 git clone <your-repo-url>
-cd nexus-terminal
+cd hegiketok
 flutter pub get
 flutter run -d macos   # or: windows | linux | chrome
 ```
