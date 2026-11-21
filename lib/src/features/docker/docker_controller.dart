@@ -1,9 +1,10 @@
 import 'dart:async';
 
-import 'package:dartssh2/dartssh2.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/ssh_credentials.dart';
+import '../../ssh/connection_progress.dart';
+import '../../ssh/ssh_connector.dart';
 import 'docker_models.dart';
 import 'docker_service.dart';
 
@@ -13,7 +14,10 @@ class DockerController extends ChangeNotifier {
 
   final SshCredentials credentials;
 
-  SSHClient? _client;
+  /// Progres handshake koneksi (ditampilkan selama menyambung).
+  final ConnectionProgress progress = ConnectionProgress();
+
+  SshConnection? _conn;
   DockerSnapshot? snapshot;
   bool loading = true;
   bool refreshing = false;
@@ -25,24 +29,12 @@ class DockerController extends ChangeNotifier {
   List<DockerContainer> get containers => snapshot?.containers ?? const [];
 
   Future<void> connect() async {
+    connectError = null;
+    loading = true;
+    notifyListeners();
     try {
-      final socket = await SSHSocket.connect(
-        credentials.host,
-        credentials.port,
-        timeout: const Duration(seconds: 10),
-      );
-      final identities = credentials.usesKey
-          ? SSHKeyPair.fromPem(credentials.privateKey!, credentials.passphrase)
-          : null;
-      final client = SSHClient(
-        socket,
-        username: credentials.username,
-        identities: identities,
-        onPasswordRequest:
-            credentials.usesKey ? null : () => credentials.password,
-      );
-      await client.authenticated;
-      _client = client;
+      progress.reset();
+      _conn = await connectSsh(credentials, progress: progress);
       await refresh();
     } catch (e) {
       connectError = _friendly(e);
@@ -52,11 +44,12 @@ class DockerController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    if (_client == null) return;
+    final conn = _conn;
+    if (conn == null) return;
     refreshing = true;
     notifyListeners();
     try {
-      snapshot = await fetchDocker(_client!);
+      snapshot = await fetchDocker(conn.client);
     } catch (e) {
       connectError = _friendly(e);
     } finally {
@@ -68,15 +61,17 @@ class DockerController extends ChangeNotifier {
 
   /// Jalankan aksi (start/stop/restart/rm) lalu refresh. Kembalikan error/null.
   Future<String?> action(String act, DockerContainer c) async {
-    if (_client == null) return 'Tidak terhubung.';
-    final err = await dockerAction(_client!, act, c.id);
+    final conn = _conn;
+    if (conn == null) return 'Tidak terhubung.';
+    final err = await dockerAction(conn.client, act, c.id);
     await refresh();
     return err.isEmpty ? null : err;
   }
 
   Future<String> logs(DockerContainer c, {int tail = 200}) async {
-    if (_client == null) return '(tidak terhubung)';
-    return dockerLogs(_client!, c.id, tail: tail);
+    final conn = _conn;
+    if (conn == null) return '(tidak terhubung)';
+    return dockerLogs(conn.client, c.id, tail: tail);
   }
 
   void toggleAutoRefresh() {
@@ -112,7 +107,7 @@ class DockerController extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
-    _client?.close();
+    _conn?.close();
     super.dispose();
   }
 }

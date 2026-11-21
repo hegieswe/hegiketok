@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:dartssh2/dartssh2.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/ssh_credentials.dart';
+import '../../ssh/connection_progress.dart';
+import '../../ssh/ssh_connector.dart';
 import 'server_info.dart';
 import 'server_info_collector.dart';
 
@@ -14,7 +15,10 @@ class ServerInfoController extends ChangeNotifier {
 
   final SshCredentials credentials;
 
-  SSHClient? _client;
+  /// Progres handshake koneksi (ditampilkan selama menyambung).
+  final ConnectionProgress progress = ConnectionProgress();
+
+  SshConnection? _conn;
   ServerInfo? info;
   bool loading = true;
   bool refreshing = false;
@@ -24,24 +28,12 @@ class ServerInfoController extends ChangeNotifier {
   Timer? _timer;
 
   Future<void> connect() async {
+    error = null;
+    loading = true;
+    notifyListeners();
     try {
-      final socket = await SSHSocket.connect(
-        credentials.host,
-        credentials.port,
-        timeout: const Duration(seconds: 10),
-      );
-      final identities = credentials.usesKey
-          ? SSHKeyPair.fromPem(credentials.privateKey!, credentials.passphrase)
-          : null;
-      final client = SSHClient(
-        socket,
-        username: credentials.username,
-        identities: identities,
-        onPasswordRequest:
-            credentials.usesKey ? null : () => credentials.password,
-      );
-      await client.authenticated;
-      _client = client;
+      progress.reset();
+      _conn = await connectSsh(credentials, progress: progress);
       await refresh();
     } catch (e) {
       error = _friendly(e);
@@ -51,11 +43,12 @@ class ServerInfoController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    if (_client == null) return;
+    final conn = _conn;
+    if (conn == null) return;
     refreshing = true;
     notifyListeners();
     try {
-      info = await collectServerInfo(_client!);
+      info = await collectServerInfo(conn.client);
       error = null;
     } catch (e) {
       error = _friendly(e);
@@ -89,10 +82,11 @@ class ServerInfoController extends ChangeNotifier {
   /// Kirim sinyal kill ke sebuah proses. [force] = SIGKILL (-9).
   /// Mengembalikan pesan error, atau null bila berhasil.
   Future<String?> killProcess(int pid, {bool force = false}) async {
-    if (_client == null) return 'Tidak terhubung.';
+    final conn = _conn;
+    if (conn == null) return 'Tidak terhubung.';
     try {
       final flag = force ? '-9 ' : '';
-      final res = await _client!.run('kill $flag$pid 2>&1');
+      final res = await conn.client.run('kill $flag$pid 2>&1');
       final msg = utf8.decode(res, allowMalformed: true).trim();
       await refresh();
       if (msg.isEmpty) return null;
@@ -121,7 +115,7 @@ class ServerInfoController extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
-    _client?.close();
+    _conn?.close();
     super.dispose();
   }
 }

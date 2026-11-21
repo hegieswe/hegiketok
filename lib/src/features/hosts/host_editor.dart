@@ -37,6 +37,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
   final _passphrase = TextEditingController();
 
   SshAuthMethod _method = SshAuthMethod.password;
+  String? _jumpHostId;
   bool _obscure = true;
 
   // Konten private key yang sudah dimuat dari file (jika ada).
@@ -56,6 +57,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
     _port = TextEditingController(text: (e?.port ?? 22).toString());
     _user = TextEditingController(text: e?.username ?? '');
     _method = e?.authMethod ?? SshAuthMethod.password;
+    _jumpHostId = e?.jumpHostId;
   }
 
   @override
@@ -114,6 +116,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
       port: int.tryParse(_port.text.trim()) ?? 22,
       username: _user.text.trim(),
       authMethod: _method,
+      jumpHostId: _jumpHostId,
+      clearJumpHost: _jumpHostId == null,
     );
 
     final isPassword = _method == SshAuthMethod.password;
@@ -216,6 +220,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                   _passwordFields()
                 else
                   _keyFields(),
+                const SizedBox(height: 18),
+                _jumpHostPicker(),
                 if (_saveError != null) ...[
                   const SizedBox(height: 16),
                   Container(
@@ -314,6 +320,75 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
         option(SshAuthMethod.password, Icons.password, 'Password'),
         const SizedBox(width: 10),
         option(SshAuthMethod.key, Icons.vpn_key_outlined, 'SSH Key'),
+      ],
+    );
+  }
+
+  Widget _jumpHostPicker() {
+    final hostsAsync = ref.watch(hostsProvider);
+    final all = hostsAsync.asData?.value ?? const <SshHost>[];
+    // Jangan boleh pilih diri sendiri sebagai bastion.
+    final options = all.where((h) => h.id != widget.existing?.id).toList();
+    // Bila jump yang tersimpan sudah tak ada, reset agar tak dangling.
+    if (_jumpHostId != null && !options.any((h) => h.id == _jumpHostId)) {
+      _jumpHostId = null;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.alt_route, size: 14, color: AppTheme.textMuted),
+            const SizedBox(width: 6),
+            const Text('Jump host / bastion (opsional)',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String?>(
+              value: _jumpHostId,
+              isExpanded: true,
+              dropdownColor: AppTheme.surface,
+              icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textMuted),
+              style:
+                  const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+              hint: const Text('Koneksi langsung (tanpa bastion)',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Koneksi langsung (tanpa bastion)',
+                      style:
+                          TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+                ),
+                for (final h in options)
+                  DropdownMenuItem<String?>(
+                    value: h.id,
+                    child: Text('${h.label}  ·  ${h.subtitle}',
+                        overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _jumpHostId = v),
+            ),
+          ),
+        ),
+        if (options.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              'Simpan host lain dulu untuk dipakai sebagai bastion.',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
+            ),
+          ),
       ],
     );
   }

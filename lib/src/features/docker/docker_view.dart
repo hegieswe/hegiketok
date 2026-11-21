@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
 import 'docker_controller.dart';
 import 'docker_models.dart';
@@ -20,6 +21,15 @@ class DockerView extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final c = controller;
+        if (c.loading && c.snapshot == null && !c.progress.finished) {
+          return HandshakeLoading(
+            progress: c.progress,
+            title: 'Menyambungkan Docker ke ${c.credentials.label}…',
+          );
+        }
+        if (c.connectError != null && c.snapshot == null) {
+          return _errorState(c.connectError!, c.connect);
+        }
         if (c.loading && c.snapshot == null) {
           return const _Centered(
             child: Column(
@@ -36,9 +46,6 @@ class DockerView extends StatelessWidget {
               ],
             ),
           );
-        }
-        if (c.connectError != null && c.snapshot == null) {
-          return _errorState(c.connectError!, c.connect);
         }
         return Container(
           color: AppTheme.bg,

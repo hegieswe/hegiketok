@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
 import 'server_info.dart';
 import 'server_info_controller.dart';
@@ -34,7 +35,13 @@ class ServerInfoView extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final c = controller;
-        if (c.loading && c.info == null) {
+        if (c.loading && c.info == null && !c.progress.finished) {
+          return HandshakeLoading(
+            progress: c.progress,
+            title: 'Menyambungkan ke ${c.credentials.label}…',
+          );
+        }
+        if (c.loading && c.info == null && c.error == null) {
           return const _Centered(
             child: Column(
               mainAxisSize: MainAxisSize.min,

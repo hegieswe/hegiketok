@@ -60,8 +60,42 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     _addTab(TerminalTab(SshTerminalSession(creds)..start()));
   }
 
-  Future<SshCredentials> _credentialsFor(SshHost host) async {
+  Future<SshCredentials> _credentialsFor(SshHost host) =>
+      _buildCreds(host, <String>{});
+
+  /// Bangun kredensial lengkap termasuk rantai jump-host (bastion), dengan
+  /// perlindungan terhadap siklus referensi lewat [visited].
+  Future<SshCredentials> _buildCreds(SshHost host, Set<String> visited) async {
+    visited.add(host.id);
     final secret = await ref.read(hostRepositoryProvider).loadSecret(host.id);
+
+    final jumps = <SshCredentials>[];
+    final jid = host.jumpHostId;
+    if (jid != null && !visited.contains(jid)) {
+      final hosts = ref.read(hostsProvider).asData?.value ?? const <SshHost>[];
+      SshHost? jump;
+      for (final h in hosts) {
+        if (h.id == jid) {
+          jump = h;
+          break;
+        }
+      }
+      if (jump != null) {
+        final jumpCreds = await _buildCreds(jump, visited);
+        // Ratakan: bastion milik bastion dulu, lalu bastion ini sendiri.
+        jumps
+          ..addAll(jumpCreds.jumpHosts)
+          ..add(SshCredentials(
+            host: jumpCreds.host,
+            port: jumpCreds.port,
+            username: jumpCreds.username,
+            password: jumpCreds.password,
+            privateKey: jumpCreds.privateKey,
+            passphrase: jumpCreds.passphrase,
+          ));
+      }
+    }
+
     return SshCredentials(
       host: host.host,
       port: host.port,
@@ -71,6 +105,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
       privateKey:
           host.authMethod == SshAuthMethod.key ? secret.privateKey : null,
       passphrase: secret.passphrase,
+      jumpHosts: jumps,
     );
   }
 

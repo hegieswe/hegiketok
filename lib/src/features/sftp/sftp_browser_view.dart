@@ -2,6 +2,7 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../ssh/handshake_stepper.dart';
 import '../../theme/app_theme.dart';
 import 'sftp_browser_controller.dart';
 
@@ -119,6 +120,14 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
     return ListenableBuilder(
       listenable: c,
       builder: (context, _) {
+        // Sebelum terhubung: tampilkan handshake stepper (atau error + retry).
+        if (!c.connected) {
+          if (c.error != null) return _connectError();
+          return HandshakeLoading(
+            progress: c.progress,
+            title: 'Menyambungkan SFTP ke ${c.credentials.label}…',
+          );
+        }
         if (_pathCtrl.text != c.cwd) _pathCtrl.text = c.cwd;
         return Container(
           color: AppTheme.bg,
@@ -132,6 +141,32 @@ class _SftpBrowserViewState extends State<SftpBrowserView> {
           ),
         );
       },
+    );
+  }
+
+  Widget _connectError() {
+    return Container(
+      color: AppTheme.bg,
+      alignment: Alignment.center,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Color(0xFFFF7B72), size: 36),
+            const SizedBox(height: 12),
+            Text(c.error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFFF7B72), fontSize: 13)),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: c.connect,
+              icon: const Icon(Icons.refresh, size: 15),
+              label: const Text('Coba lagi'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

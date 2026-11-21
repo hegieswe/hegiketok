@@ -16,6 +16,7 @@ class SshHost {
     required this.username,
     this.authMethod = SshAuthMethod.password,
     this.group,
+    this.jumpHostId,
   });
 
   final String id;
@@ -28,6 +29,10 @@ class SshHost {
   /// Folder/kategori opsional untuk mengelompokkan host.
   final String? group;
 
+  /// Id host tersimpan lain yang dipakai sebagai jump-host/bastion untuk
+  /// menjangkau host ini. null = koneksi langsung.
+  final String? jumpHostId;
+
   String get subtitle => '$username@$host:$port';
 
   SshHost copyWith({
@@ -37,6 +42,8 @@ class SshHost {
     String? username,
     SshAuthMethod? authMethod,
     String? group,
+    String? jumpHostId,
+    bool clearJumpHost = false,
   }) {
     return SshHost(
       id: id,
@@ -46,6 +53,7 @@ class SshHost {
       username: username ?? this.username,
       authMethod: authMethod ?? this.authMethod,
       group: group ?? this.group,
+      jumpHostId: clearJumpHost ? null : (jumpHostId ?? this.jumpHostId),
     );
   }
 
@@ -57,6 +65,7 @@ class SshHost {
         'username': username,
         'authMethod': authMethod.name,
         'group': group,
+        'jumpHostId': jumpHostId,
       };
 
   factory SshHost.fromJson(Map<String, dynamic> json) {
@@ -71,6 +80,7 @@ class SshHost {
         orElse: () => SshAuthMethod.password,
       ),
       group: json['group'] as String?,
+      jumpHostId: json['jumpHostId'] as String?,
     );
   }
 }

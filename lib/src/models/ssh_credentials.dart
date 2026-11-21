@@ -11,6 +11,7 @@ class SshCredentials {
     this.password,
     this.privateKey,
     this.passphrase,
+    this.jumpHosts = const [],
   });
 
   final String host;
@@ -20,6 +21,10 @@ class SshCredentials {
   final String? password;
   final String? privateKey;
   final String? passphrase;
+
+  /// Rantai jump-host (bastion) yang harus dilewati sebelum mencapai host ini,
+  /// urut dari yang paling luar. Kosong = koneksi langsung.
+  final List<SshCredentials> jumpHosts;
 
   bool get usesKey => privateKey != null && privateKey!.trim().isNotEmpty;
 

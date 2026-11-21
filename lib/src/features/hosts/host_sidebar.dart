@@ -233,11 +233,22 @@ class _HostTileState extends State<_HostTile> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    Text(
-                      host.subtitle,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: AppTheme.textMuted, fontSize: 11),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            host.subtitle,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: AppTheme.textMuted, fontSize: 11),
+                          ),
+                        ),
+                        if (host.jumpHostId != null) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.alt_route,
+                              size: 11, color: AppTheme.accent),
+                        ],
+                      ],
                     ),
                   ],
                 ),

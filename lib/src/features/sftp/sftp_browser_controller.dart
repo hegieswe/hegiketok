@@ -5,6 +5,8 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/ssh_credentials.dart';
+import '../../ssh/connection_progress.dart';
+import '../../ssh/ssh_connector.dart';
 
 /// Mengelola satu koneksi SFTP: navigasi direktori remote serta transfer file
 /// (unduh/unggah). Memakai [ChangeNotifier] agar UI bisa rebuild saat state
@@ -14,7 +16,10 @@ class SftpBrowserController extends ChangeNotifier {
 
   final SshCredentials credentials;
 
-  SSHClient? _client;
+  /// Progres handshake koneksi (ditampilkan selama menyambung).
+  final ConnectionProgress progress = ConnectionProgress();
+
+  SshConnection? _conn;
   SftpClient? _sftp;
 
   String cwd = '/';
@@ -25,24 +30,16 @@ class SftpBrowserController extends ChangeNotifier {
   String? transferStatus;
 
   Future<void> connect() async {
+    error = null;
+    loading = true;
+    notifyListeners();
     try {
-      final socket = await SSHSocket.connect(
-        credentials.host,
-        credentials.port,
-        timeout: const Duration(seconds: 10),
-      );
-      final identities = credentials.usesKey
-          ? SSHKeyPair.fromPem(credentials.privateKey!, credentials.passphrase)
-          : null;
-      final client = SSHClient(
-        socket,
-        username: credentials.username,
-        identities: identities,
-        onPasswordRequest:
-            credentials.usesKey ? null : () => credentials.password,
-      );
-      _client = client;
-      final sftp = await client.sftp();
+      progress.reset();
+      final conn = await connectSsh(credentials, progress: progress);
+      _conn = conn;
+      final openStep = progress.begin('Membuka channel SFTP');
+      final sftp = await conn.client.sftp();
+      progress.complete(openStep);
       _sftp = sftp;
       cwd = await sftp.absolute('.');
       connected = true;
@@ -185,7 +182,7 @@ class SftpBrowserController extends ChangeNotifier {
   @override
   void dispose() {
     _sftp?.close();
-    _client?.close();
+    _conn?.close();
     super.dispose();
   }
 }
