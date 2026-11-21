@@ -13,6 +13,8 @@ class HostSidebar extends ConsumerWidget {
     super.key,
     required this.onConnect,
     required this.onOpenSftp,
+    required this.onOpenInfo,
+    required this.onOpenDocker,
   });
 
   /// Dipanggil saat pengguna memilih sebuah host untuk dikoneksikan (terminal).
@@ -20,6 +22,12 @@ class HostSidebar extends ConsumerWidget {
 
   /// Dipanggil saat pengguna ingin membuka browser SFTP untuk sebuah host.
   final void Function(SshHost host) onOpenSftp;
+
+  /// Dipanggil saat pengguna ingin membuka dashboard info server.
+  final void Function(SshHost host) onOpenInfo;
+
+  /// Dipanggil saat pengguna ingin membuka panel Docker.
+  final void Function(SshHost host) onOpenDocker;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,6 +99,8 @@ class HostSidebar extends ConsumerWidget {
                         host: hosts[i],
                         onConnect: () => onConnect(hosts[i]),
                         onOpenSftp: () => onOpenSftp(hosts[i]),
+                        onOpenInfo: () => onOpenInfo(hosts[i]),
+                        onOpenDocker: () => onOpenDocker(hosts[i]),
                         onEdit: () =>
                             showHostEditor(context, existing: hosts[i]),
                         onDelete: () => _confirmDelete(context, ref, hosts[i]),
@@ -168,6 +178,8 @@ class _HostTile extends StatefulWidget {
     required this.host,
     required this.onConnect,
     required this.onOpenSftp,
+    required this.onOpenInfo,
+    required this.onOpenDocker,
     required this.onEdit,
     required this.onDelete,
   });
@@ -175,6 +187,8 @@ class _HostTile extends StatefulWidget {
   final SshHost host;
   final VoidCallback onConnect;
   final VoidCallback onOpenSftp;
+  final VoidCallback onOpenInfo;
+  final VoidCallback onOpenDocker;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -229,6 +243,16 @@ class _HostTileState extends State<_HostTile> {
                 ),
               ),
               if (_hover) ...[
+                _IconBtn(
+                  icon: Icons.monitor_heart_outlined,
+                  tooltip: 'Info server (CPU, RAM, disk…)',
+                  onTap: widget.onOpenInfo,
+                ),
+                _IconBtn(
+                  icon: Icons.directions_boat_filled_outlined,
+                  tooltip: 'Docker (container, logs…)',
+                  onTap: widget.onOpenDocker,
+                ),
                 _IconBtn(
                   icon: Icons.folder_outlined,
                   tooltip: 'Buka SFTP (file manager)',

@@ -6,7 +6,10 @@ import '../../models/ssh_credentials.dart';
 import '../../models/ssh_host.dart';
 import '../../session/workspace_tab.dart';
 import '../../theme/app_theme.dart';
+import '../docker/docker_tab.dart';
 import '../hosts/host_sidebar.dart';
+import '../server_info/server_info_tab.dart';
+import '../settings/settings_panel.dart';
 import '../sftp/sftp_tab.dart';
 import '../ssh/connection_form.dart';
 import '../ssh/ssh_terminal_session.dart';
@@ -23,6 +26,7 @@ class WorkspaceScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final List<WorkspaceTab> _tabs = [];
   int _active = 0;
   bool _showSidebar = true;
@@ -82,6 +86,18 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     _addTab(SftpTab(creds, label: host.label));
   }
 
+  /// Buka dashboard info server dari host tersimpan.
+  Future<void> _openInfo(SshHost host) async {
+    final creds = await _credentialsFor(host);
+    _addTab(ServerInfoTab(creds, label: host.label));
+  }
+
+  /// Buka panel Docker dari host tersimpan.
+  Future<void> _openDocker(SshHost host) async {
+    final creds = await _credentialsFor(host);
+    _addTab(DockerTab(creds, label: host.label));
+  }
+
   void _close(int index) {
     _tabs[index].dispose();
     setState(() {
@@ -93,6 +109,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: const SettingsPanel(),
       body: Column(
         children: [
           _TitleBar(
@@ -101,6 +119,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                 setState(() => _showSidebar = !_showSidebar),
             onNewLocal: _openLocal,
             onNewSsh: _openSsh,
+            onOpenSettings: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           Expanded(
             child: Row(
@@ -109,6 +128,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                   HostSidebar(
                     onConnect: _openSavedHost,
                     onOpenSftp: _openSftp,
+                    onOpenInfo: _openInfo,
+                    onOpenDocker: _openDocker,
                   ),
                 Expanded(
                   child: Column(
@@ -149,12 +170,14 @@ class _TitleBar extends StatelessWidget {
     required this.onToggleSidebar,
     required this.onNewLocal,
     required this.onNewSsh,
+    required this.onOpenSettings,
   });
 
   final bool showSidebar;
   final VoidCallback onToggleSidebar;
   final VoidCallback onNewLocal;
   final VoidCallback onNewSsh;
+  final VoidCallback onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +214,14 @@ class _TitleBar extends StatelessWidget {
               label: 'SSH',
               primary: true,
               onTap: onNewSsh),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.palette_outlined,
+                size: 18, color: AppTheme.textMuted),
+            tooltip: 'Tema & tampilan',
+            onPressed: onOpenSettings,
+          ),
+          const SizedBox(width: 4),
           const Text('local-first · tanpa cloud',
               style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
         ],
