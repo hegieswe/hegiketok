@@ -16,6 +16,8 @@ class HostSidebar extends ConsumerWidget {
     required this.onOpenInfo,
     required this.onOpenDocker,
     required this.onOpenServices,
+    required this.onOpenCron,
+    required this.onOpenUsers,
   });
 
   /// Dipanggil saat pengguna memilih sebuah host untuk dikoneksikan (terminal).
@@ -32,6 +34,12 @@ class HostSidebar extends ConsumerWidget {
 
   /// Dipanggil saat pengguna ingin membuka panel service systemd.
   final void Function(SshHost host) onOpenServices;
+
+  /// Dipanggil saat pengguna ingin membuka penjadwal cron.
+  final void Function(SshHost host) onOpenCron;
+
+  /// Dipanggil saat pengguna ingin membuka daftar user sistem.
+  final void Function(SshHost host) onOpenUsers;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -106,6 +114,8 @@ class HostSidebar extends ConsumerWidget {
                         onOpenInfo: () => onOpenInfo(hosts[i]),
                         onOpenDocker: () => onOpenDocker(hosts[i]),
                         onOpenServices: () => onOpenServices(hosts[i]),
+                        onOpenCron: () => onOpenCron(hosts[i]),
+                        onOpenUsers: () => onOpenUsers(hosts[i]),
                         onEdit: () =>
                             showHostEditor(context, existing: hosts[i]),
                         onDelete: () => _confirmDelete(context, ref, hosts[i]),
@@ -186,6 +196,8 @@ class _HostTile extends StatefulWidget {
     required this.onOpenInfo,
     required this.onOpenDocker,
     required this.onOpenServices,
+    required this.onOpenCron,
+    required this.onOpenUsers,
     required this.onEdit,
     required this.onDelete,
   });
@@ -196,6 +208,8 @@ class _HostTile extends StatefulWidget {
   final VoidCallback onOpenInfo;
   final VoidCallback onOpenDocker;
   final VoidCallback onOpenServices;
+  final VoidCallback onOpenCron;
+  final VoidCallback onOpenUsers;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -280,6 +294,42 @@ class _HostTileState extends State<_HostTile> {
                   icon: Icons.folder_outlined,
                   tooltip: 'Buka SFTP (file manager)',
                   onTap: widget.onOpenSftp,
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'Lainnya',
+                  color: AppTheme.surface,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                  icon: const Icon(Icons.more_horiz,
+                      size: 15, color: AppTheme.textMuted),
+                  onSelected: (v) {
+                    if (v == 'cron') widget.onOpenCron();
+                    if (v == 'users') widget.onOpenUsers();
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'cron',
+                      child: Row(children: [
+                        Icon(Icons.schedule, size: 15, color: AppTheme.textMuted),
+                        SizedBox(width: 8),
+                        Text('Cron (penjadwal)',
+                            style: TextStyle(
+                                color: AppTheme.textPrimary, fontSize: 13)),
+                      ]),
+                    ),
+                    PopupMenuItem(
+                      value: 'users',
+                      child: Row(children: [
+                        Icon(Icons.group_outlined,
+                            size: 15, color: AppTheme.textMuted),
+                        SizedBox(width: 8),
+                        Text('Users (sistem)',
+                            style: TextStyle(
+                                color: AppTheme.textPrimary, fontSize: 13)),
+                      ]),
+                    ),
+                  ],
                 ),
                 _IconBtn(
                   icon: Icons.edit_outlined,

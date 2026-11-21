@@ -6,11 +6,13 @@ import '../../models/ssh_credentials.dart';
 import '../../models/ssh_host.dart';
 import '../../session/workspace_tab.dart';
 import '../../theme/app_theme.dart';
+import '../cron/cron_tab.dart';
 import '../docker/docker_tab.dart';
 import '../hosts/host_sidebar.dart';
 import '../server_info/server_info_tab.dart';
 import '../services/service_tab.dart';
 import '../settings/settings_panel.dart';
+import '../users/user_tab.dart';
 import '../sftp/sftp_tab.dart';
 import '../ssh/connection_form.dart';
 import '../ssh/ssh_terminal_session.dart';
@@ -140,6 +142,18 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     _addTab(ServiceTab(creds, label: host.label));
   }
 
+  /// Buka penjadwal cron dari host tersimpan.
+  Future<void> _openCron(SshHost host) async {
+    final creds = await _credentialsFor(host);
+    _addTab(CronTab(creds, label: host.label));
+  }
+
+  /// Buka daftar user sistem dari host tersimpan.
+  Future<void> _openUsers(SshHost host) async {
+    final creds = await _credentialsFor(host);
+    _addTab(UserTab(creds, label: host.label));
+  }
+
   void _close(int index) {
     _tabs[index].dispose();
     setState(() {
@@ -173,6 +187,8 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     onOpenInfo: _openInfo,
                     onOpenDocker: _openDocker,
                     onOpenServices: _openServices,
+                    onOpenCron: _openCron,
+                    onOpenUsers: _openUsers,
                   ),
                 Expanded(
                   child: Column(
