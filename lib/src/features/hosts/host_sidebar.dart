@@ -5,6 +5,7 @@ import '../../data/host_providers.dart';
 import '../../models/ssh_host.dart';
 import '../../theme/app_theme.dart';
 import 'host_editor.dart';
+import 'ssh_config_import.dart';
 
 /// Panel kiri berisi daftar host SSH tersimpan.
 class HostSidebar extends ConsumerWidget {
@@ -50,6 +51,11 @@ class HostSidebar extends ConsumerWidget {
                       letterSpacing: 0.8,
                     ),
                   ),
+                ),
+                _IconBtn(
+                  icon: Icons.download_outlined,
+                  tooltip: 'Import dari ~/.ssh/config',
+                  onTap: () => showSshConfigImport(context),
                 ),
                 _IconBtn(
                   icon: Icons.add,
