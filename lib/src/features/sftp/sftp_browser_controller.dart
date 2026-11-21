@@ -26,8 +26,11 @@ class SftpBrowserController extends ChangeNotifier {
 
   Future<void> connect() async {
     try {
-      final socket =
-          await SSHSocket.connect(credentials.host, credentials.port);
+      final socket = await SSHSocket.connect(
+        credentials.host,
+        credentials.port,
+        timeout: const Duration(seconds: 10),
+      );
       final identities = credentials.usesKey
           ? SSHKeyPair.fromPem(credentials.privateKey!, credentials.passphrase)
           : null;

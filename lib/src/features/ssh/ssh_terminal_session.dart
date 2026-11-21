@@ -39,6 +39,7 @@ class SshTerminalSession implements TerminalSession {
       final socket = await SSHSocket.connect(
         credentials.host,
         credentials.port,
+        timeout: const Duration(seconds: 10),
       );
 
       // Siapkan identitas key bila metode autentikasi memakai SSH key.
