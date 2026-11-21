@@ -1,8 +1,18 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/app.dart';
+import 'src/features/settings/settings_providers.dart';
 
-void main() {
-  runApp(const ProviderScope(child: HegiKetokApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+
+  runApp(
+    ProviderScope(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+      child: const HegiKetokApp(),
+    ),
+  );
 }

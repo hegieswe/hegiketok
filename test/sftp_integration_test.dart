@@ -14,6 +14,7 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexus_term/src/features/server_info/server_info_collector.dart';
 
 const _host = '127.0.0.1';
 const _port = 2222;
@@ -74,6 +75,17 @@ void main() {
       expect(items, isNotEmpty);
       // '.' dan '..' selalu ada di listing SFTP.
       expect(items.map((e) => e.filename), contains('.'));
+    });
+
+    test('Server info: kumpulkan metrik sistem via SSH', () async {
+      if (!serverUp) return;
+      final info = await collectServerInfo(client);
+      expect(info.hostname, isNotEmpty);
+      expect(info.cpuCores, greaterThan(0));
+      expect(info.memTotalKb, greaterThan(0));
+      expect(info.disks, isNotEmpty);
+      expect(info.cpuUsage, inInclusiveRange(0, 100));
+      expect(info.topProcesses, isNotEmpty);
     });
 
     test('SFTP: siklus penuh mkdir → tulis → baca → rename → hapus',
