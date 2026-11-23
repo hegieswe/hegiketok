@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 
 import 'features/settings/settings_providers.dart';
 import 'features/workspace/workspace_screen.dart';
+import 'ssh/host_key_dialog.dart';
+import 'ssh/known_hosts.dart';
 import 'theme/app_theme.dart';
 
 /// Root aplikasi HegiKetok.
@@ -16,8 +18,11 @@ class HegiKetokApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(settingsProvider.select((s) => s.themeMode));
+    // Pasang verifier host key berbasis dialog (idempoten).
+    globalHostKeyVerifier = hostKeyDialogVerifier;
     return MaterialApp(
       title: 'HegiKetok',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

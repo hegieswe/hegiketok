@@ -13,6 +13,7 @@ class AppSettings {
     this.cpuAlert = 90,
     this.memAlert = 90,
     this.diskAlert = 90,
+    this.autoCheckUpdates = true,
   });
 
   /// Mode tema aplikasi (ikuti sistem / terang / gelap).
@@ -26,6 +27,10 @@ class AppSettings {
   final double memAlert;
   final double diskAlert;
 
+  /// Periksa rilis baru secara otomatis (paling sering sekali sehari). Hanya
+  /// satu GET publik ke GitHub; tidak ada data pengguna yang dikirim.
+  final bool autoCheckUpdates;
+
   AppSettings copyWith({
     ThemeMode? themeMode,
     String? themeName,
@@ -33,6 +38,7 @@ class AppSettings {
     double? cpuAlert,
     double? memAlert,
     double? diskAlert,
+    bool? autoCheckUpdates,
   }) =>
       AppSettings(
         themeMode: themeMode ?? this.themeMode,
@@ -41,6 +47,7 @@ class AppSettings {
         cpuAlert: cpuAlert ?? this.cpuAlert,
         memAlert: memAlert ?? this.memAlert,
         diskAlert: diskAlert ?? this.diskAlert,
+        autoCheckUpdates: autoCheckUpdates ?? this.autoCheckUpdates,
       );
 }
 
@@ -64,6 +71,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
       cpuAlert: _prefs.getDouble('cpuAlert') ?? 90,
       memAlert: _prefs.getDouble('memAlert') ?? 90,
       diskAlert: _prefs.getDouble('diskAlert') ?? 90,
+      autoCheckUpdates: _prefs.getBool('autoCheckUpdates') ?? true,
     );
   }
 
@@ -102,6 +110,20 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _prefs.setDouble('memAlert', v);
     state = state.copyWith(memAlert: v);
   }
+
+  void setAutoCheckUpdates(bool v) {
+    _prefs.setBool('autoCheckUpdates', v);
+    state = state.copyWith(autoCheckUpdates: v);
+  }
+
+  /// Waktu pemeriksaan pembaruan otomatis terakhir (null = belum pernah).
+  DateTime? get lastUpdateCheck {
+    final ms = _prefs.getInt('lastUpdateCheck');
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  void markUpdateChecked(DateTime when) =>
+      _prefs.setInt('lastUpdateCheck', when.millisecondsSinceEpoch);
 
   void setDiskAlert(double v) {
     _prefs.setDouble('diskAlert', v);

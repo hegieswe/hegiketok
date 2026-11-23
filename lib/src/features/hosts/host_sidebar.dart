@@ -5,7 +5,10 @@ import '../../data/host_providers.dart';
 import '../../models/ssh_host.dart';
 import '../../theme/app_theme.dart';
 import 'host_editor.dart';
+import 'host_os.dart';
 import 'ssh_config_import.dart';
+
+export 'host_os.dart' show hostOsIcon, hostOsColor;
 
 /// Panel kiri berisi daftar host SSH tersimpan.
 class HostSidebar extends ConsumerWidget {
@@ -18,7 +21,12 @@ class HostSidebar extends ConsumerWidget {
     required this.onOpenServices,
     required this.onOpenCron,
     required this.onOpenUsers,
+    required this.onOpenTmux,
+    this.onlineHostIds = const {},
   });
+
+  /// Id host yang sedang punya sesi/tab terbuka → ditandai online (hijau).
+  final Set<String> onlineHostIds;
 
   final void Function(SshHost host) onConnect;
   final void Function(SshHost host) onOpenSftp;
@@ -27,6 +35,7 @@ class HostSidebar extends ConsumerWidget {
   final void Function(SshHost host) onOpenServices;
   final void Function(SshHost host) onOpenCron;
   final void Function(SshHost host) onOpenUsers;
+  final void Function(SshHost host) onOpenTmux;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -97,6 +106,7 @@ class HostSidebar extends ConsumerWidget {
                       itemCount: hosts.length,
                       itemBuilder: (_, i) => _HostTile(
                         host: hosts[i],
+                        online: onlineHostIds.contains(hosts[i].id),
                         onConnect: () => onConnect(hosts[i]),
                         onOpenSftp: () => onOpenSftp(hosts[i]),
                         onOpenInfo: () => onOpenInfo(hosts[i]),
@@ -104,6 +114,7 @@ class HostSidebar extends ConsumerWidget {
                         onOpenServices: () => onOpenServices(hosts[i]),
                         onOpenCron: () => onOpenCron(hosts[i]),
                         onOpenUsers: () => onOpenUsers(hosts[i]),
+                        onOpenTmux: () => onOpenTmux(hosts[i]),
                         onEdit: () =>
                             showHostEditor(context, existing: hosts[i]),
                         onDelete: () => _confirmDelete(context, ref, hosts[i]),
@@ -203,31 +214,10 @@ class HostSidebar extends ConsumerWidget {
   }
 }
 
-/// Pilih ikon berdasarkan tebakan OS dari label/host (best-effort).
-IconData _osIcon(SshHost host) {
-  final t = '${host.label} ${host.host}'.toLowerCase();
-  if (t.contains('ubuntu') ||
-      t.contains('debian') ||
-      t.contains('linux') ||
-      t.contains('centos') ||
-      t.contains('fedora') ||
-      t.contains('arch')) {
-    return Icons.terminal_rounded;
-  }
-  if (t.contains('mac') || t.contains('darwin')) return Icons.laptop_mac;
-  if (t.contains('win')) return Icons.window;
-  if (t.contains('db') || t.contains('sql') || t.contains('postgres')) {
-    return Icons.storage_rounded;
-  }
-  if (t.contains('web') || t.contains('nginx') || t.contains('app')) {
-    return Icons.public;
-  }
-  return Icons.dns_rounded;
-}
-
 class _HostTile extends StatefulWidget {
   const _HostTile({
     required this.host,
+    required this.online,
     required this.onConnect,
     required this.onOpenSftp,
     required this.onOpenInfo,
@@ -235,11 +225,13 @@ class _HostTile extends StatefulWidget {
     required this.onOpenServices,
     required this.onOpenCron,
     required this.onOpenUsers,
+    required this.onOpenTmux,
     required this.onEdit,
     required this.onDelete,
   });
 
   final SshHost host;
+  final bool online;
   final VoidCallback onConnect;
   final VoidCallback onOpenSftp;
   final VoidCallback onOpenInfo;
@@ -247,6 +239,7 @@ class _HostTile extends StatefulWidget {
   final VoidCallback onOpenServices;
   final VoidCallback onOpenCron;
   final VoidCallback onOpenUsers;
+  final VoidCallback onOpenTmux;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -283,7 +276,7 @@ class _HostTileState extends State<_HostTile> {
                 padding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
                 child: Row(
                   children: [
-                    _avatar(host),
+                    _avatar(host, widget.online),
                     const SizedBox(width: 11),
                     Expanded(
                       child: Column(
@@ -329,6 +322,10 @@ class _HostTileState extends State<_HostTile> {
                               ),
                             ],
                           ),
+                          if (host.tags.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            _tagChips(host.tags),
+                          ],
                         ],
                       ),
                     ),
@@ -343,15 +340,69 @@ class _HostTileState extends State<_HostTile> {
     );
   }
 
-  Widget _avatar(SshHost host) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: AppTheme.accentSoft,
-        borderRadius: BorderRadius.circular(AppTheme.rSm),
+  /// Deret chip tag ringkas (maks 3 + "+N") untuk baris host di sidebar.
+  Widget _tagChips(List<String> tags) {
+    final shown = tags.take(3).toList();
+    final extra = tags.length - shown.length;
+    return SizedBox(
+      height: 18,
+      child: ClipRect(
+        child: Wrap(
+          spacing: 4,
+          clipBehavior: Clip.hardEdge,
+          children: [
+            for (final t in shown)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceHigh,
+                  borderRadius: BorderRadius.circular(AppTheme.rPill),
+                ),
+                child: Text(t,
+                    style: TextStyle(
+                        color: AppTheme.textMuted,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600)),
+              ),
+            if (extra > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceHigh,
+                  borderRadius: BorderRadius.circular(AppTheme.rPill),
+                ),
+                child: Text('+$extra',
+                    style: TextStyle(
+                        color: AppTheme.textFaint,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600)),
+              ),
+          ],
+        ),
       ),
-      child: Icon(_osIcon(host), size: 17, color: AppTheme.accent),
+    );
+  }
+
+  Widget _avatar(SshHost host, bool online) {
+    final c = hostOsColor(host);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: c.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(AppTheme.rSm),
+          ),
+          child: Icon(hostOsIcon(host), size: 17, color: c),
+        ),
+        Positioned(
+          right: -3,
+          bottom: -3,
+          child: OnlineBadge(online: online),
+        ),
+      ],
     );
   }
 
@@ -381,6 +432,8 @@ class _HostTileState extends State<_HostTile> {
               widget.onOpenCron();
             case 'users':
               widget.onOpenUsers();
+            case 'tmux':
+              widget.onOpenTmux();
             case 'edit':
               widget.onEdit();
             case 'delete':
@@ -395,6 +448,7 @@ class _HostTileState extends State<_HostTile> {
           _item('services', Icons.settings_suggest_outlined, 'Services'),
           _item('cron', Icons.schedule, 'Cron'),
           _item('users', Icons.group_outlined, 'Users'),
+          _item('tmux', Icons.grid_view_rounded, 'tmux (control mode)'),
           const PopupMenuDivider(),
           _item('edit', Icons.edit_outlined, 'Edit'),
           _item('delete', Icons.delete_outline, 'Hapus', danger: true),
@@ -418,6 +472,38 @@ class _HostTileState extends State<_HostTile> {
                   color: danger ? AppTheme.danger : AppTheme.textPrimary,
                   fontSize: 13)),
         ],
+      ),
+    );
+  }
+}
+
+/// Lencana status koneksi untuk sebuah host: hijau = online (ada sesi terbuka),
+/// merah = offline (tak ada tab terbuka). Dipakai di sidebar & grid.
+class OnlineBadge extends StatelessWidget {
+  const OnlineBadge({super.key, required this.online, this.size = 11});
+
+  final bool online;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = online ? AppTheme.success : AppTheme.danger;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: c,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppTheme.surface, width: 2),
+        boxShadow: online
+            ? [
+                BoxShadow(
+                  color: c.withValues(alpha: 0.6),
+                  blurRadius: 5,
+                  spreadRadius: 0.5,
+                ),
+              ]
+            : null,
       ),
     );
   }

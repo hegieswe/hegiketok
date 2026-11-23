@@ -44,6 +44,9 @@ dependencies:
   uuid: ^4.6.0
   file_picker: ^13.4.0
   shared_preferences: ^2.5.6
+  pointycastle: ^4.0.0
+  # Ed25519 (sudah dipakai dartssh2) — untuk membuat SSH key di dalam app.
+  pinenacl: ^0.6.0
 
 dev_dependencies:
   flutter_test:

@@ -2,6 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_theme.dart';
+import '../ssh/known_hosts_dialog.dart';
+import '../updates/update_checker.dart';
+import '../updates/update_ui.dart';
+import 'backup_actions.dart';
 import 'settings_providers.dart';
 import 'terminal_themes.dart';
 
@@ -91,6 +95,48 @@ class SettingsPanel extends ConsumerWidget {
                       selected: preset.name == settings.themeName,
                       onTap: () => notifier.setTheme(preset.name),
                     ),
+                  const SizedBox(height: 22),
+                  _sectionLabel('KEAMANAN'),
+                  const SizedBox(height: 10),
+                  _SettingsTile(
+                    icon: Icons.verified_user_outlined,
+                    title: 'Known Hosts',
+                    subtitle: 'Kelola host key tepercaya (TOFU)',
+                    onTap: () => showKnownHostsDialog(context),
+                  ),
+                  const SizedBox(height: 22),
+                  _sectionLabel('DATA'),
+                  const SizedBox(height: 10),
+                  _SettingsTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Backup terenkripsi',
+                    subtitle: 'Ekspor host, snippet & known-host (AES-256)',
+                    onTap: () => exportVault(context, ref),
+                  ),
+                  const SizedBox(height: 8),
+                  _SettingsTile(
+                    icon: Icons.restore_rounded,
+                    title: 'Restore dari backup',
+                    subtitle: 'Impor berkas .hvault',
+                    onTap: () => importVault(context, ref),
+                  ),
+                  const SizedBox(height: 22),
+                  _sectionLabel('APLIKASI'),
+                  const SizedBox(height: 10),
+                  _SettingsTile(
+                    icon: Icons.system_update_alt_rounded,
+                    title: 'Periksa pembaruan',
+                    subtitle: 'HegiKetok v$kAppVersion',
+                    onTap: () => checkForUpdateInteractive(context),
+                  ),
+                  const SizedBox(height: 8),
+                  _SwitchTile(
+                    icon: Icons.autorenew_rounded,
+                    title: 'Periksa otomatis',
+                    subtitle: 'Sekali sehari saat app dibuka (GitHub Releases)',
+                    value: settings.autoCheckUpdates,
+                    onChanged: notifier.setAutoCheckUpdates,
+                  ),
                 ],
               ),
             ),
@@ -109,6 +155,131 @@ class SettingsPanel extends ConsumerWidget {
           letterSpacing: 0.9,
         ),
       );
+}
+
+/// Baris pengaturan yang bisa ditekan (membuka dialog/aksi).
+/// Baris pengaturan dengan sakelar (hidup/mati).
+class _SwitchTile extends StatelessWidget {
+  const _SwitchTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        borderRadius: BorderRadius.circular(AppTheme.rMd),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 7, 6, 7),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceInput,
+            borderRadius: BorderRadius.circular(AppTheme.rMd),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 17, color: AppTheme.textMuted),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 1),
+                    Text(subtitle,
+                        style: TextStyle(
+                            color: AppTheme.textMuted, fontSize: 11.5)),
+                  ],
+                ),
+              ),
+              Transform.scale(
+                scale: 0.78,
+                child: Switch(
+                  value: value,
+                  onChanged: onChanged,
+                  activeThumbColor: AppTheme.onAccent,
+                  activeTrackColor: AppTheme.accent,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.rMd),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceInput,
+            borderRadius: BorderRadius.circular(AppTheme.rMd),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 17, color: AppTheme.textMuted),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 1),
+                    Text(subtitle,
+                        style: TextStyle(
+                            color: AppTheme.textMuted, fontSize: 11.5)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppTheme.textFaint),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Segmented control untuk memilih mode tema aplikasi.
@@ -140,27 +311,31 @@ class _ModeToggle extends StatelessWidget {
   Widget _seg(ThemeMode m, IconData icon, String label) {
     final selected = mode == m;
     return Expanded(
-      child: GestureDetector(
-        onTap: () => onChanged(m),
-        child: AnimatedContainer(
-          duration: AppTheme.fast,
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(
-            color: selected ? AppTheme.accent : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppTheme.rSm),
-          ),
-          child: Column(
-            children: [
-              Icon(icon,
-                  size: 16,
-                  color: selected ? AppTheme.onAccent : AppTheme.textMuted),
-              const SizedBox(height: 4),
-              Text(label,
-                  style: TextStyle(
-                      color: selected ? AppTheme.onAccent : AppTheme.textMuted,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600)),
-            ],
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => onChanged(m),
+          child: AnimatedContainer(
+            duration: AppTheme.fast,
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: selected ? AppTheme.accent : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppTheme.rSm),
+            ),
+            child: Column(
+              children: [
+                Icon(icon,
+                    size: 16,
+                    color: selected ? AppTheme.onAccent : AppTheme.textMuted),
+                const SizedBox(height: 4),
+                Text(label,
+                    style: TextStyle(
+                        color:
+                            selected ? AppTheme.onAccent : AppTheme.textMuted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
           ),
         ),
       ),

@@ -16,8 +16,9 @@ import '../models/ssh_host.dart';
 ///   yang memakai **Keychain** macOS. Tidak pernah ditulis ke disk sebagai
 ///   teks biasa.
 class HostRepository {
-  HostRepository({FlutterSecureStorage? secureStorage})
-      : _secure = secureStorage ??
+  HostRepository({FlutterSecureStorage? secureStorage, Directory? directory})
+      : _dirOverride = directory,
+        _secure = secureStorage ??
             const FlutterSecureStorage(
               // Keychain legacy (file-based) di macOS: tidak memerlukan
               // entitlement keychain-access-groups maupun Apple Developer
@@ -29,11 +30,14 @@ class HostRepository {
 
   final FlutterSecureStorage _secure;
 
+  /// Override direktori — dipakai pengujian agar tak bergantung path_provider.
+  final Directory? _dirOverride;
+
   File? _cachedFile;
 
   Future<File> _hostsFile() async {
     if (_cachedFile != null) return _cachedFile!;
-    final dir = await getApplicationSupportDirectory();
+    final dir = _dirOverride ?? await getApplicationSupportDirectory();
     final file = File('${dir.path}/hosts.json');
     if (!await file.exists()) {
       await file.create(recursive: true);
@@ -67,39 +71,74 @@ class HostRepository {
     );
   }
 
+  /// Baca daftar host untuk DITULIS ULANG. Berbeda dari [loadHosts], berkas
+  /// yang rusak di sini melempar galat — kalau dianggap kosong, penyimpanan
+  /// berikutnya akan menimpa (menghapus) semua host yang ada.
+  Future<List<SshHost>> _readHostsForWrite() async {
+    final file = await _hostsFile();
+    final content = await file.readAsString();
+    if (content.trim().isEmpty) return [];
+    final list = jsonDecode(content) as List<dynamic>;
+    return list
+        .map((e) => SshHost.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Tambah/perbarui host beserta rahasianya.
   ///
   /// Rahasia yang bernilai null TIDAK diubah (berguna saat mengedit host tanpa
   /// mengganti password/key).
+  ///
+  /// Rahasia ditulis ke Keychain LEBIH DULU; daftar host baru diperbarui bila
+  /// itu berhasil. Dengan begitu kegagalan Keychain tidak meninggalkan host
+  /// "yatim" tanpa password di daftar. Untuk host baru, rahasia yang sempat
+  /// tertulis dibersihkan lagi bila langkah berikutnya gagal.
   Future<void> saveHost(
     SshHost host, {
     String? password,
     String? privateKey,
     String? passphrase,
   }) async {
-    final hosts = await loadHosts();
+    final hosts = await _readHostsForWrite();
     final index = hosts.indexWhere((h) => h.id == host.id);
-    if (index >= 0) {
-      hosts[index] = host;
-    } else {
-      hosts.add(host);
-    }
-    await _writeHosts(hosts);
+    final isNew = index < 0;
 
-    if (password != null) {
-      await _secure.write(key: _pwKey(host.id), value: password);
+    try {
+      if (password != null) {
+        await _secure.write(key: _pwKey(host.id), value: password);
+      }
+      if (privateKey != null) {
+        await _secure.write(key: _keyKey(host.id), value: privateKey);
+      }
+      if (passphrase != null) {
+        await _secure.write(key: _passKey(host.id), value: passphrase);
+      }
+
+      if (isNew) {
+        hosts.add(host);
+      } else {
+        hosts[index] = host;
+      }
+      await _writeHosts(hosts);
+    } catch (_) {
+      if (isNew) await _deleteSecretsQuietly(host.id);
+      rethrow;
     }
-    if (privateKey != null) {
-      await _secure.write(key: _keyKey(host.id), value: privateKey);
-    }
-    if (passphrase != null) {
-      await _secure.write(key: _passKey(host.id), value: passphrase);
+  }
+
+  Future<void> _deleteSecretsQuietly(String id) async {
+    for (final key in [_pwKey(id), _keyKey(id), _passKey(id)]) {
+      try {
+        await _secure.delete(key: key);
+      } catch (_) {
+        // Pembersihan terbaik-usaha; galat aslinya yang dilempar ke pemanggil.
+      }
     }
   }
 
   /// Hapus host beserta semua rahasianya.
   Future<void> deleteHost(String id) async {
-    final hosts = await loadHosts();
+    final hosts = await _readHostsForWrite();
     hosts.removeWhere((h) => h.id == id);
     await _writeHosts(hosts);
     await _secure.delete(key: _pwKey(id));

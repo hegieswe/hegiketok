@@ -1,24 +1,35 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../data/host_credentials.dart';
 import '../../data/host_providers.dart';
 import '../../models/ssh_credentials.dart';
 import '../../models/ssh_host.dart';
 import '../../session/workspace_tab.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/brand.dart';
+import '../command_palette/command_palette.dart';
 import '../cron/cron_tab.dart';
 import '../docker/docker_tab.dart';
+import '../hosts/host_editor.dart';
 import '../hosts/host_sidebar.dart';
+import '../hosts/hosts_home.dart';
+import '../hosts/ssh_config_import.dart';
 import '../server_info/server_info_tab.dart';
+import '../snippets/snippets_dialog.dart';
 import '../services/service_tab.dart';
 import '../settings/settings_panel.dart';
 import '../settings/settings_providers.dart';
 import '../sftp/sftp_tab.dart';
 import '../ssh/connection_form.dart';
 import '../ssh/ssh_terminal_session.dart';
+import '../ssh/tmux_control_tab.dart';
 import '../terminal/local_terminal_session.dart';
 import '../terminal/terminal_tab.dart';
+import '../updates/update_ui.dart';
 import '../users/user_tab.dart';
+import 'split_tab.dart';
 
 /// Layar utama: sidebar host tersimpan + workspace ber-tab yang menampung
 /// terminal lokal, koneksi SSH, dan panel-panel server sekaligus.
@@ -35,10 +46,50 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   int _active = 0;
   bool _showSidebar = true;
 
+  /// Peta tab → id host yang diwakilinya. Sebuah host dianggap ONLINE hanya
+  /// bila minimal satu tabnya benar-benar TERSAMBUNG saat ini (bukan sekadar
+  /// terbuka): koneksi yang sedang menyambung, gagal, atau timeout → offline.
+  final Map<WorkspaceTab, String> _tabHostId = {};
+
+  /// Himpunan id host yang online = punya tab dengan koneksi hidup. Tab tanpa
+  /// pelacakan koneksi (mis. panel SFTP) dianggap online selama terbuka.
+  Set<String> get _onlineHosts {
+    final online = <String>{};
+    _tabHostId.forEach((tab, hostId) {
+      final conn = tab.connection;
+      if (conn == null || conn.value) online.add(hostId);
+    });
+    return online;
+  }
+
+  /// Dipanggil tiap status koneksi sebuah tab berubah → perbarui badge host.
+  void _refreshOnline() {
+    if (mounted) setState(() {});
+  }
+
+  /// Ikat sebuah tab ke host + pantau status koneksinya.
+  void _bindHost(WorkspaceTab tab, String hostId) {
+    _tabHostId[tab] = hostId;
+    tab.connection?.addListener(_refreshOnline);
+  }
+
+  /// Lepas ikatan host sebuah tab; kembalikan id host sebelumnya (bila ada).
+  String? _unbindHost(WorkspaceTab tab) {
+    final hostId = _tabHostId.remove(tab);
+    if (hostId != null) tab.connection?.removeListener(_refreshOnline);
+    return hostId;
+  }
+
   @override
   void initState() {
     super.initState();
-    _openLocal();
+    // Mendarat di grid host (home), bukan langsung terminal lokal — seperti
+    // Termius. Terminal lokal dibuka lewat tombol saat dibutuhkan.
+
+    // Cek pembaruan senyap (maks. sekali sehari; bisa dimatikan di Settings).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybeAutoCheckForUpdate(context, ref);
+    });
   }
 
   @override
@@ -56,6 +107,12 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     });
   }
 
+  /// Tambah tab yang terikat ke sebuah host (statusnya mengikuti koneksi).
+  void _addHostTab(WorkspaceTab tab, String hostId) {
+    _bindHost(tab, hostId);
+    _addTab(tab);
+  }
+
   void _openLocal() => _addTab(TerminalTab(LocalTerminalSession()..start()));
 
   Future<void> _openSsh() async {
@@ -64,95 +121,167 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     _addTab(TerminalTab(SshTerminalSession(creds)..start()));
   }
 
-  Future<SshCredentials> _credentialsFor(SshHost host) =>
-      _buildCreds(host, <String>{});
-
-  /// Bangun kredensial lengkap termasuk rantai jump-host (bastion), dengan
-  /// perlindungan terhadap siklus referensi lewat [visited].
-  Future<SshCredentials> _buildCreds(SshHost host, Set<String> visited) async {
-    visited.add(host.id);
-    final secret = await ref.read(hostRepositoryProvider).loadSecret(host.id);
-
-    final jumps = <SshCredentials>[];
-    final jid = host.jumpHostId;
-    if (jid != null && !visited.contains(jid)) {
-      final hosts = ref.read(hostsProvider).asData?.value ?? const <SshHost>[];
-      SshHost? jump;
-      for (final h in hosts) {
-        if (h.id == jid) {
-          jump = h;
-          break;
-        }
-      }
-      if (jump != null) {
-        final jumpCreds = await _buildCreds(jump, visited);
-        jumps
-          ..addAll(jumpCreds.jumpHosts)
-          ..add(SshCredentials(
-            host: jumpCreds.host,
-            port: jumpCreds.port,
-            username: jumpCreds.username,
-            password: jumpCreds.password,
-            privateKey: jumpCreds.privateKey,
-            passphrase: jumpCreds.passphrase,
-          ));
-      }
-    }
-
-    return SshCredentials(
-      host: host.host,
-      port: host.port,
-      username: host.username,
-      password:
-          host.authMethod == SshAuthMethod.password ? secret.password : null,
-      privateKey:
-          host.authMethod == SshAuthMethod.key ? secret.privateKey : null,
-      passphrase: secret.passphrase,
-      jumpHosts: jumps,
-    );
-  }
+  /// Kredensial lengkap sebuah host tersimpan (termasuk rantai bastion).
+  Future<SshCredentials> _credentialsFor(SshHost host) => buildHostCredentials(
+        host,
+        loadSecret: ref.read(hostRepositoryProvider).loadSecret,
+        allHosts: ref.read(hostsProvider).asData?.value ?? const <SshHost>[],
+      );
 
   Future<void> _openSavedHost(SshHost host) async {
     final creds = await _credentialsFor(host);
-    _addTab(TerminalTab(SshTerminalSession(creds)..start()));
+    _addHostTab(
+      TerminalTab(SshTerminalSession(
+        creds,
+        label: host.label,
+        startupCommand: host.startupCommand,
+        persistent: host.persistentSession,
+      )..start()),
+      host.id,
+    );
   }
 
   Future<void> _openSftp(SshHost host) async {
     final creds = await _credentialsFor(host);
-    _addTab(SftpTab(creds, label: host.label));
+    _addHostTab(
+      SftpTab(creds, label: host.label, resolveCreds: _credentialsFor),
+      host.id,
+    );
   }
 
   Future<void> _openInfo(SshHost host) async {
     final creds = await _credentialsFor(host);
-    _addTab(ServerInfoTab(creds, label: host.label));
+    _addHostTab(ServerInfoTab(creds, label: host.label), host.id);
   }
 
   Future<void> _openDocker(SshHost host) async {
     final creds = await _credentialsFor(host);
-    _addTab(DockerTab(creds, label: host.label));
+    _addHostTab(DockerTab(creds, label: host.label), host.id);
   }
 
   Future<void> _openServices(SshHost host) async {
     final creds = await _credentialsFor(host);
-    _addTab(ServiceTab(creds, label: host.label));
+    _addHostTab(ServiceTab(creds, label: host.label), host.id);
   }
 
   Future<void> _openCron(SshHost host) async {
     final creds = await _credentialsFor(host);
-    _addTab(CronTab(creds, label: host.label));
+    _addHostTab(CronTab(creds, label: host.label), host.id);
   }
 
   Future<void> _openUsers(SshHost host) async {
     final creds = await _credentialsFor(host);
-    _addTab(UserTab(creds, label: host.label));
+    _addHostTab(UserTab(creds, label: host.label), host.id);
+  }
+
+  Future<void> _openTmux(SshHost host) async {
+    final creds = await _credentialsFor(host);
+    _addHostTab(TmuxControlTab(creds, label: host.label), host.id);
   }
 
   void _close(int index) {
-    _tabs[index].dispose();
+    final tab = _tabs[index];
+    _unbindHost(tab); // host jadi offline bila ini tab terakhirnya
+    tab.dispose();
     setState(() {
       _tabs.removeAt(index);
       if (_active >= _tabs.length) _active = _tabs.length - 1;
     });
+  }
+
+  /// Buat sesi kembar dari sebuah tab terminal (untuk panel split kedua).
+  /// SSH → sambung ulang host yang sama; lokal → shell lokal baru.
+  WorkspaceTab? _cloneTerminal(WorkspaceTab tab) {
+    if (tab is! TerminalTab) return null;
+    final s = tab.session;
+    if (s is SshTerminalSession) {
+      return TerminalTab(SshTerminalSession(
+        s.credentials,
+        label: s.label,
+        startupCommand: s.startupCommand,
+        persistent: s.persistent,
+      )..start());
+    }
+    return TerminalTab(LocalTerminalSession()..start());
+  }
+
+  bool get _canSplitActive =>
+      _tabs.isNotEmpty &&
+      _active < _tabs.length &&
+      _tabs[_active] is TerminalTab;
+
+  /// Pecah tab aktif jadi dua panel berdampingan (panel kiri = sesi sekarang,
+  /// panel kanan = sesi kembar). Panel kiri TIDAK tersambung ulang.
+  void _splitActive(Axis direction) {
+    if (!_canSplitActive) return;
+    final current = _tabs[_active];
+    final clone = _cloneTerminal(current);
+    if (clone == null) return;
+    final split = SplitTab(current, clone, direction: direction);
+    split.onUnsplit = (keep, drop) => _unsplit(split, keep, drop);
+    // Pindahkan ikatan host dari tab lama ke SplitTab (host yang sama).
+    final hostId = _unbindHost(current);
+    setState(() {
+      _tabs[_active] = split;
+      if (hostId != null) _bindHost(split, hostId);
+    });
+  }
+
+  /// Tutup salah satu panel split: pertahankan [keep] sebagai tab tunggal,
+  /// lepas [drop].
+  void _unsplit(SplitTab split, WorkspaceTab keep, WorkspaceTab drop) {
+    final index = _tabs.indexOf(split);
+    if (index < 0) return;
+    drop.dispose();
+    final hostId = _unbindHost(split);
+    split.releaseConnection(); // panel 'keep' tetap hidup, jangan ikut dilepas
+    setState(() {
+      _tabs[index] = keep;
+      if (hostId != null) _bindHost(keep, hostId);
+    });
+  }
+
+  void _openPalette() {
+    showCommandPalette(
+      context,
+      onConnectHost: _openSavedHost,
+      commands: [
+        PaletteCommand(
+            icon: Icons.terminal_rounded,
+            label: 'Terminal Lokal',
+            run: _openLocal),
+        PaletteCommand(
+            icon: Icons.cloud_outlined,
+            label: 'Koneksi SSH baru',
+            run: _openSsh),
+        PaletteCommand(
+            icon: Icons.code_rounded,
+            label: 'Snippets',
+            run: () => showSnippetsDialog(context)),
+        PaletteCommand(
+            icon: Icons.add_rounded,
+            label: 'Host baru',
+            run: () => showHostEditor(context)),
+        PaletteCommand(
+            icon: Icons.download_outlined,
+            label: 'Import ~/.ssh/config',
+            run: () => showSshConfigImport(context)),
+        PaletteCommand(
+            icon: Icons.tune_rounded,
+            label: 'Pengaturan',
+            run: () => _scaffoldKey.currentState?.openEndDrawer()),
+      ],
+    );
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.keyK &&
+        HardwareKeyboard.instance.isMetaPressed) {
+      _openPalette();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _cycleTheme() {
@@ -168,26 +297,43 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   @override
   Widget build(BuildContext context) {
     final mode = ref.watch(settingsProvider.select((s) => s.themeMode));
-    return Scaffold(
+    // Pada mode "Sistem", OS bisa berganti terang/gelap tanpa mengubah
+    // themeMode. Membaca platformBrightness mendaftarkan dependency MediaQuery
+    // sehingga layar ikut rebuild saat OS beralih appearance — tanpa ini palet
+    // facade (AppTheme.current) basi dan sebagian UI "nyangkut" di tema lama.
+    if (mode == ThemeMode.system) {
+      MediaQuery.platformBrightnessOf(context);
+    }
+    return Focus(
+      onKeyEvent: _onKey,
+      child: Scaffold(
       key: _scaffoldKey,
       endDrawer: const SettingsPanel(),
       body: Column(
         children: [
           _TitleBar(
             showSidebar: _showSidebar,
+            sidebarToggleEnabled: _tabs.isNotEmpty,
+            splitEnabled: _canSplitActive,
             themeMode: mode,
             onToggleSidebar: () =>
                 setState(() => _showSidebar = !_showSidebar),
             onNewLocal: _openLocal,
             onNewSsh: _openSsh,
+            onSplitRight: () => _splitActive(Axis.horizontal),
+            onSplitDown: () => _splitActive(Axis.vertical),
             onCycleTheme: _cycleTheme,
             onOpenSettings: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           Expanded(
             child: Row(
               children: [
-                if (_showSidebar)
+                // Sidebar host hanya saat ada sesi terbuka (sebagai pengalih
+                // cepat). Di home, grid sudah jadi daftar host-nya → tak perlu
+                // daftar ganda.
+                if (_showSidebar && _tabs.isNotEmpty)
                   HostSidebar(
+                    onlineHostIds: _onlineHosts,
                     onConnect: _openSavedHost,
                     onOpenSftp: _openSftp,
                     onOpenInfo: _openInfo,
@@ -195,6 +341,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                     onOpenServices: _openServices,
                     onOpenCron: _openCron,
                     onOpenUsers: _openUsers,
+                    onOpenTmux: _openTmux,
                   ),
                 Expanded(
                   child: Column(
@@ -208,8 +355,18 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                       ),
                       Expanded(
                         child: _tabs.isEmpty
-                            ? _EmptyState(
-                                onNewLocal: _openLocal, onNewSsh: _openSsh)
+                            ? HostsHome(
+                                onlineHostIds: _onlineHosts,
+                                onConnect: _openSavedHost,
+                                onOpenSftp: _openSftp,
+                                onOpenInfo: _openInfo,
+                                onOpenDocker: _openDocker,
+                                onOpenServices: _openServices,
+                                onOpenCron: _openCron,
+                                onOpenUsers: _openUsers,
+                                onOpenTmux: _openTmux,
+                                onNewLocal: _openLocal,
+                              )
                             : IndexedStack(
                                 index: _active,
                                 children: [
@@ -225,6 +382,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           ),
         ],
       ),
+      ),
     );
   }
 }
@@ -232,19 +390,27 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 class _TitleBar extends StatelessWidget {
   const _TitleBar({
     required this.showSidebar,
+    required this.sidebarToggleEnabled,
+    required this.splitEnabled,
     required this.themeMode,
     required this.onToggleSidebar,
     required this.onNewLocal,
     required this.onNewSsh,
+    required this.onSplitRight,
+    required this.onSplitDown,
     required this.onCycleTheme,
     required this.onOpenSettings,
   });
 
   final bool showSidebar;
+  final bool sidebarToggleEnabled;
+  final bool splitEnabled;
   final ThemeMode themeMode;
   final VoidCallback onToggleSidebar;
   final VoidCallback onNewLocal;
   final VoidCallback onNewSsh;
+  final VoidCallback onSplitRight;
+  final VoidCallback onSplitDown;
   final VoidCallback onCycleTheme;
   final VoidCallback onOpenSettings;
 
@@ -259,15 +425,17 @@ class _TitleBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          _GhostIcon(
-            icon: showSidebar
-                ? Icons.view_sidebar_outlined
-                : Icons.view_sidebar,
-            tooltip: 'Tampilkan/sembunyikan daftar host',
-            onTap: onToggleSidebar,
-          ),
-          const SizedBox(width: 6),
-          _brand(),
+          if (sidebarToggleEnabled) ...[
+            _GhostIcon(
+              icon: showSidebar
+                  ? Icons.view_sidebar_outlined
+                  : Icons.view_sidebar,
+              tooltip: 'Tampilkan/sembunyikan daftar host',
+              onTap: onToggleSidebar,
+            ),
+            const SizedBox(width: 6),
+          ],
+          const BrandLogo(),
           const Spacer(),
           _NewButton(
             icon: Icons.add_rounded,
@@ -284,6 +452,18 @@ class _TitleBar extends StatelessWidget {
           const SizedBox(width: 10),
           Container(width: 1, height: 22, color: AppTheme.border),
           const SizedBox(width: 6),
+          if (splitEnabled) ...[
+            _GhostIcon(
+              icon: Icons.vertical_split_rounded,
+              tooltip: 'Split kiri|kanan (dua terminal berdampingan)',
+              onTap: onSplitRight,
+            ),
+            _GhostIcon(
+              icon: Icons.horizontal_split_rounded,
+              tooltip: 'Split atas/bawah (dua terminal bertumpuk)',
+              onTap: onSplitDown,
+            ),
+          ],
           _GhostIcon(
             icon: switch (themeMode) {
               ThemeMode.dark => Icons.dark_mode_outlined,
@@ -307,45 +487,6 @@ class _TitleBar extends StatelessWidget {
     );
   }
 
-  Widget _brand() {
-    return Row(
-      children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppTheme.accent, AppTheme.violet],
-            ),
-            borderRadius: BorderRadius.circular(AppTheme.rSm),
-          ),
-          child: const Icon(Icons.terminal_rounded, size: 15, color: Colors.white),
-        ),
-        const SizedBox(width: 9),
-        Text(
-          'HegiKetok',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceInput,
-            borderRadius: BorderRadius.circular(AppTheme.rPill),
-          ),
-          child: Text('local-first',
-              style: TextStyle(color: AppTheme.textFaint, fontSize: 10.5)),
-        ),
-      ],
-    );
-  }
 }
 
 class _GhostIcon extends StatelessWidget {
@@ -395,6 +536,7 @@ class _NewButtonState extends State<_NewButton> {
         ? (_hover ? AppTheme.accentHover : AppTheme.accent)
         : (_hover ? AppTheme.surfaceInput : Colors.transparent);
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
@@ -505,6 +647,7 @@ class _TabItemState extends State<_TabItem> {
   Widget build(BuildContext context) {
     final selected = widget.selected;
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
@@ -562,76 +705,6 @@ class _TabItemState extends State<_TabItem> {
         child: Padding(
           padding: const EdgeInsets.all(2),
           child: Icon(Icons.close_rounded, size: 14, color: AppTheme.textMuted),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onNewLocal, required this.onNewSsh});
-
-  final VoidCallback onNewLocal;
-  final VoidCallback onNewSsh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: AppTheme.bg,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(AppTheme.rXl),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: Icon(Icons.terminal_rounded,
-                  size: 32, color: AppTheme.textFaint),
-            ),
-            const SizedBox(height: 20),
-            Text('Tidak ada sesi terbuka',
-                style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text('Mulai terminal lokal atau sambungkan ke server.',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-            const SizedBox(height: 22),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: onNewLocal,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.textPrimary,
-                    side: BorderSide(color: AppTheme.border),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('Terminal Lokal'),
-                ),
-                const SizedBox(width: 12),
-                FilledButton.icon(
-                  onPressed: onNewSsh,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.accent,
-                    foregroundColor: AppTheme.onAccent,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                  ),
-                  icon: const Icon(Icons.cloud_outlined, size: 16),
-                  label: const Text('Koneksi SSH'),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/ssh_credentials.dart';
@@ -20,6 +21,9 @@ class ServerInfoTab implements WorkspaceTab {
 
   @override
   IconData get icon => Icons.monitor_heart_outlined;
+
+  @override
+  ValueListenable<bool>? get connection => null;
 
   @override
   Widget build(BuildContext context) =>

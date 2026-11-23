@@ -21,6 +21,8 @@ const _port = 2222;
 const _user = 'nexus';
 const _pass = 'nexus123';
 const _workDir = '/config'; // direktori yang bisa ditulis user nexus
+const _skipReason =
+    'Server uji (container nexus-ssh-test di 127.0.0.1:2222) tidak berjalan.';
 
 Future<bool> _reachable() async {
   try {
@@ -36,22 +38,16 @@ Future<bool> _reachable() async {
   }
 }
 
-void main() {
-  late bool serverUp;
-
-  setUpAll(() async {
-    serverUp = await _reachable();
-    if (!serverUp) {
-      // ignore: avoid_print
-      print('⚠️  Server uji coba tidak terjangkau — grup di-skip.');
-    }
-  });
+Future<void> main() async {
+  // Keterjangkauan dicek SEBELUM tes didaftarkan supaya grup yang tak bisa
+  // jalan dilaporkan sebagai "skipped" oleh runner, bukan "passed".
+  final serverUp = await _reachable();
+  final skip = serverUp ? null : _skipReason;
 
   group('SSH/SFTP integration', () {
     late SSHClient client;
 
     setUp(() async {
-      if (!serverUp) return;
       final socket = await SSHSocket.connect(_host, _port);
       client = SSHClient(socket,
           username: _user, onPasswordRequest: () => _pass);
@@ -59,17 +55,15 @@ void main() {
     });
 
     tearDown(() {
-      if (serverUp) client.close();
+      client.close();
     });
 
     test('SSH: eksekusi perintah "whoami" mengembalikan user', () async {
-      if (!serverUp) return;
       final out = await client.run('whoami');
       expect(utf8.decode(out).trim(), _user);
     });
 
     test('SFTP: list direktori home mengembalikan daftar', () async {
-      if (!serverUp) return;
       final sftp = await client.sftp();
       final items = await sftp.listdir(_workDir);
       expect(items, isNotEmpty);
@@ -78,7 +72,6 @@ void main() {
     });
 
     test('Server info: kumpulkan metrik sistem via SSH', () async {
-      if (!serverUp) return;
       final info = await collectServerInfo(client);
       expect(info.hostname, isNotEmpty);
       expect(info.cpuCores, greaterThan(0));
@@ -90,7 +83,6 @@ void main() {
 
     test('SFTP: siklus penuh mkdir → tulis → baca → rename → hapus',
         () async {
-      if (!serverUp) return;
       final sftp = await client.sftp();
       final dir = '$_workDir/nexus_it_${DateTime.now().millisecondsSinceEpoch}';
       const payload = 'Halo dari tes integrasi HegiKetok 🎉';
@@ -130,20 +122,18 @@ void main() {
       // 6. pastikan direktori sudah tidak ada (listdir melempar error)
       await expectLater(sftp.listdir(dir), throwsA(anything));
     });
-  });
+  }, skip: skip);
 
   // Menguji jalur kode yang sama dengan fitur SSH-key app (SSHKeyPair.fromPem).
   // Prasyarat: keypair uji terdaftar di server, private key di
   // ~/.ssh/hegiketok_test_ed25519. Jika tidak ada, tes di-skip.
   group('SSH key auth', () {
     test('autentikasi via private key (OpenSSH ed25519)', () async {
-      if (!serverUp) return;
       final keyPath =
           '${Platform.environment['HOME']}/.ssh/hegiketok_test_ed25519';
       final keyFile = File(keyPath);
       if (!await keyFile.exists()) {
-        // ignore: avoid_print
-        print('⚠️  Key uji tidak ada ($keyPath) — tes key di-skip.');
+        markTestSkipped('Key uji tidak ada ($keyPath).');
         return;
       }
       final pem = await keyFile.readAsString();
@@ -159,7 +149,7 @@ void main() {
       expect(utf8.decode(out).trim(), _user);
       client.close();
     });
-  });
+  }, skip: skip);
 
   // Regresi untuk TC-SSH-05: host tak terjangkau harus MELEMPAR (timeout),
   // bukan menggantung tanpa batas. Tidak perlu server uji coba.

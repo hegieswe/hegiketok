@@ -12,6 +12,7 @@ class SshCredentials {
     this.privateKey,
     this.passphrase,
     this.jumpHosts = const [],
+    this.forwardAgent = false,
   });
 
   final String host;
@@ -25,6 +26,11 @@ class SshCredentials {
   /// Rantai jump-host (bastion) yang harus dilewati sebelum mencapai host ini,
   /// urut dari yang paling luar. Kosong = koneksi langsung.
   final List<SshCredentials> jumpHosts;
+
+  /// Teruskan agen SSH ke host ini: server bisa memakai key ini untuk
+  /// menyambung ke server lain (mis. `git pull`, `ssh` lanjutan) tanpa key
+  /// disalin ke sana. Hanya berlaku bila login memakai key.
+  final bool forwardAgent;
 
   bool get usesKey => privateKey != null && privateKey!.trim().isNotEmpty;
 

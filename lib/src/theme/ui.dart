@@ -54,6 +54,7 @@ class _AppCardState extends State<AppCard> {
     );
     if (widget.onTap == null) return card;
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(onTap: widget.onTap, child: card),
@@ -247,6 +248,7 @@ class _ToolButtonState extends State<ToolButton> {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: MouseRegion(
+        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hover = true),
         onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
@@ -330,21 +332,24 @@ class FilterTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = color ?? AppTheme.accent;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppTheme.fast,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: active ? c.withValues(alpha: 0.14) : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTheme.rSm),
-          border: Border.all(color: active ? c : AppTheme.border),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: AppTheme.fast,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: active ? c.withValues(alpha: 0.14) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.rSm),
+            border: Border.all(color: active ? c : AppTheme.border),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  color: active ? c : AppTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
         ),
-        child: Text(label,
-            style: TextStyle(
-                color: active ? c : AppTheme.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -545,25 +550,28 @@ class _AutoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppTheme.success;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? c.withValues(alpha: 0.14) : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppTheme.rSm),
-          border: Border.all(color: active ? c : AppTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(active ? Icons.sync_rounded : Icons.sync_disabled_rounded,
-                size: 13, color: active ? c : AppTheme.textMuted),
-            const SizedBox(width: 5),
-            Text('Auto',
-                style: TextStyle(
-                    color: active ? c : AppTheme.textMuted, fontSize: 11)),
-          ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? c.withValues(alpha: 0.14) : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTheme.rSm),
+            border: Border.all(color: active ? c : AppTheme.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(active ? Icons.sync_rounded : Icons.sync_disabled_rounded,
+                  size: 13, color: active ? c : AppTheme.textMuted),
+              const SizedBox(width: 5),
+              Text('Auto',
+                  style: TextStyle(
+                      color: active ? c : AppTheme.textMuted, fontSize: 11)),
+            ],
+          ),
         ),
       ),
     );

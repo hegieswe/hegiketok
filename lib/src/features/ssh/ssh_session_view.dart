@@ -4,7 +4,9 @@ import '../../ssh/handshake_stepper.dart';
 import '../../ssh/port_forward.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/ui.dart';
+import '../snippets/snippets_dialog.dart';
 import '../terminal/session_view.dart';
+import 'port_forward_dialog.dart';
 import 'ssh_terminal_session.dart';
 
 /// Tampilan sesi SSH: terminal + banner handshake (sebelum terhubung) + bar
@@ -18,6 +20,7 @@ class SshSessionView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        _ActionBar(session: session),
         // Banner handshake: tampil sampai koneksi selesai.
         ListenableBuilder(
           listenable: session.progress,
@@ -37,6 +40,45 @@ class SshSessionView extends StatelessWidget {
         _ForwardBar(session: session),
         Expanded(child: SessionView(session.terminal)),
       ],
+    );
+  }
+}
+
+/// Bar aksi tipis untuk sesi SSH: pintasan Snippets (ketik/jalankan perintah).
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({required this.session});
+
+  final SshTerminalSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border(bottom: BorderSide(color: AppTheme.border)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          const Spacer(),
+          ToolButton(
+            icon: Icons.swap_horiz_rounded,
+            label: 'Port Forward',
+            onTap: () => showPortForwardDialog(context, session.forwards),
+          ),
+          const SizedBox(width: 6),
+          ToolButton(
+            icon: Icons.code_rounded,
+            label: 'Snippets',
+            onTap: () => showSnippetsDialog(
+              context,
+              onType: (cmd) => session.sendCommand(cmd, run: false),
+              onRun: (cmd) => session.sendCommand(cmd, run: true),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

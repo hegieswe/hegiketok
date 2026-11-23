@@ -1,183 +1,122 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:material_ui/material_ui.dart';
 
 import '../../models/ssh_credentials.dart';
-import '../../ssh/connection_progress.dart';
 import '../../ssh/ssh_connector.dart';
+import 'file_browser.dart';
 
-/// Mengelola satu koneksi SFTP: navigasi direktori remote serta transfer file
-/// (unduh/unggah). Memakai [ChangeNotifier] agar UI bisa rebuild saat state
-/// berubah.
-class SftpBrowserController extends ChangeNotifier {
-  SftpBrowserController(this.credentials);
+/// Backend [FileBrowser] untuk SFTP remote: membuka koneksi SSH dengan
+/// [dartssh2] lalu menyediakan primitif IO di atas [SftpClient].
+class SftpBrowserController extends FileBrowser {
+  SftpBrowserController(this.credentials, {this.label});
 
   final SshCredentials credentials;
-
-  /// Progres handshake koneksi (ditampilkan selama menyambung).
-  final ConnectionProgress progress = ConnectionProgress();
+  final String? label;
 
   SshConnection? _conn;
   SftpClient? _sftp;
 
-  String cwd = '/';
-  List<SftpName> entries = [];
-  bool loading = true;
-  bool connected = false;
-  String? error;
-  String? transferStatus;
+  @override
+  String get rootLabel => label ?? '${credentials.username}@${credentials.host}';
 
-  Future<void> connect() async {
-    error = null;
-    loading = true;
-    notifyListeners();
-    try {
-      progress.reset();
-      final conn = await connectSsh(credentials, progress: progress);
-      _conn = conn;
-      final openStep = progress.begin('Membuka channel SFTP');
-      final sftp = await conn.client.sftp();
-      progress.complete(openStep);
-      _sftp = sftp;
-      cwd = await sftp.absolute('.');
-      connected = true;
-      await _load();
-    } catch (e) {
-      error = _friendly(e);
-      loading = false;
-      notifyListeners();
-    }
+  @override
+  bool get isLocal => false;
+
+  @override
+  Future<String> openConnection() async {
+    progress.reset();
+    final conn = await connectSsh(credentials, progress: progress);
+    _conn = conn;
+    final step = progress.begin('Membuka channel SFTP');
+    final sftp = await conn.client.sftp();
+    progress.complete(step);
+    _sftp = sftp;
+    return await sftp.absolute('.');
   }
 
-  Future<void> _load() async {
-    loading = true;
-    error = null;
-    notifyListeners();
+  @override
+  Future<List<FileEntry>> listAt(String absPath) async {
+    final list = await _sftp!.listdir(absPath);
+    return list.map(_toEntry).toList();
+  }
+
+  FileEntry _toEntry(SftpName n) {
+    final t = n.attr.type;
+    final kind = t == SftpFileType.directory
+        ? FileKind.directory
+        : t == SftpFileType.symbolicLink
+            ? FileKind.link
+            : FileKind.file;
+    return FileEntry(
+      name: n.filename,
+      kind: kind,
+      size: n.attr.size,
+      modifyEpoch: n.attr.modifyTime,
+      mode: _modeBits(n.attr.mode),
+    );
+  }
+
+  int? _modeBits(SftpFileMode? m) {
+    if (m == null) return null;
+    int bit(bool b, int v) => b ? v : 0;
+    return bit(m.userRead, 256) +
+        bit(m.userWrite, 128) +
+        bit(m.userExecute, 64) +
+        bit(m.groupRead, 32) +
+        bit(m.groupWrite, 16) +
+        bit(m.groupExecute, 8) +
+        bit(m.otherRead, 4) +
+        bit(m.otherWrite, 2) +
+        bit(m.otherExecute, 1);
+  }
+
+  @override
+  Future<Uint8List> readFileAt(String absPath) async {
+    final f = await _sftp!.open(absPath, mode: SftpFileOpenMode.read);
     try {
-      final list = await _sftp!.listdir(cwd);
-      list.removeWhere((e) => e.filename == '.' || e.filename == '..');
-      list.sort((a, b) {
-        final ad = a.attr.type == SftpFileType.directory;
-        final bd = b.attr.type == SftpFileType.directory;
-        if (ad != bd) return ad ? -1 : 1; // folder dulu
-        return a.filename.toLowerCase().compareTo(b.filename.toLowerCase());
-      });
-      entries = list;
-    } catch (e) {
-      error = _friendly(e);
+      return await f.readBytes();
     } finally {
-      loading = false;
-      notifyListeners();
+      await f.close();
     }
   }
 
-  Future<void> refresh() => _load();
-
-  Future<void> openDir(String name) async {
-    cwd = _join(cwd, name);
-    await _load();
-  }
-
-  Future<void> goUp() async {
-    cwd = _parent(cwd);
-    await _load();
-  }
-
-  Future<void> navigateTo(String path) async {
-    cwd = path.isEmpty ? '/' : path;
-    await _load();
-  }
-
-  /// Ambil isi sebuah file remote sebagai bytes (untuk disimpan lokal oleh UI).
-  /// Mengembalikan null bila gagal.
-  Future<Uint8List?> fetchBytes(SftpName entry) async {
-    _setTransfer('Mengunduh ${entry.filename}…');
+  @override
+  Future<void> writeFileAt(String absPath, Uint8List data) async {
+    final f = await _sftp!.open(
+      absPath,
+      mode: SftpFileOpenMode.create |
+          SftpFileOpenMode.write |
+          SftpFileOpenMode.truncate,
+    );
     try {
-      final file = await _sftp!
-          .open(_join(cwd, entry.filename), mode: SftpFileOpenMode.read);
-      final data = await file.readBytes();
-      await file.close();
-      _setTransfer('✓ Terunduh: ${entry.filename}');
-      return data;
-    } catch (e) {
-      _setTransfer('✗ Gagal unduh: ${_friendly(e)}');
-      return null;
+      await f.writeBytes(data);
+    } finally {
+      await f.close();
     }
   }
 
-  /// Unggah file lokal [localPath] ke direktori aktif remote.
-  Future<void> upload(String localPath) async {
-    final name = localPath.split(Platform.pathSeparator).last;
-    _setTransfer('Mengunggah $name…');
-    try {
-      final data = await File(localPath).readAsBytes();
-      final file = await _sftp!.open(
-        _join(cwd, name),
-        mode: SftpFileOpenMode.create |
-            SftpFileOpenMode.write |
-            SftpFileOpenMode.truncate,
+  @override
+  Future<void> mkdirAt(String absPath) => _sftp!.mkdir(absPath);
+
+  @override
+  Future<void> removeAt(String absPath, FileKind kind) async {
+    if (kind == FileKind.directory) {
+      await _sftp!.rmdir(absPath);
+    } else {
+      await _sftp!.remove(absPath);
+    }
+  }
+
+  @override
+  Future<void> renameAt(String srcAbs, String dstAbs) =>
+      _sftp!.rename(srcAbs, dstAbs);
+
+  @override
+  Future<void> chmodAt(String absPath, int octal) => _sftp!.setStat(
+        absPath,
+        SftpFileAttrs(mode: SftpFileMode.value(octal)),
       );
-      await file.writeBytes(data);
-      await file.close();
-      _setTransfer('✓ Terunggah: $name');
-      await _load();
-    } catch (e) {
-      _setTransfer('✗ Gagal unggah: ${_friendly(e)}');
-    }
-  }
-
-  Future<void> deleteEntry(SftpName entry) async {
-    try {
-      final path = _join(cwd, entry.filename);
-      if (entry.attr.type == SftpFileType.directory) {
-        await _sftp!.rmdir(path);
-      } else {
-        await _sftp!.remove(path);
-      }
-      await _load();
-    } catch (e) {
-      _setTransfer('✗ Gagal hapus: ${_friendly(e)}');
-    }
-  }
-
-  Future<void> makeDir(String name) async {
-    try {
-      await _sftp!.mkdir(_join(cwd, name));
-      await _load();
-    } catch (e) {
-      _setTransfer('✗ Gagal buat folder: ${_friendly(e)}');
-    }
-  }
-
-  void _setTransfer(String msg) {
-    transferStatus = msg;
-    notifyListeners();
-  }
-
-  /// Laporkan error dari lapisan UI (mis. dialog file gagal dibuka).
-  void reportError(String msg) => _setTransfer('✗ $msg');
-
-  String _join(String base, String name) =>
-      base.endsWith('/') ? '$base$name' : '$base/$name';
-
-  String _parent(String path) {
-    if (path == '/' || path.isEmpty) return '/';
-    final trimmed =
-        path.endsWith('/') ? path.substring(0, path.length - 1) : path;
-    final idx = trimmed.lastIndexOf('/');
-    return idx <= 0 ? '/' : trimmed.substring(0, idx);
-  }
-
-  String _friendly(Object e) {
-    final text = e.toString().toLowerCase();
-    if (text.contains('auth')) return 'Autentikasi gagal.';
-    if (text.contains('permission')) return 'Akses ditolak (permission).';
-    if (text.contains('no such')) return 'Berkas/direktori tidak ditemukan.';
-    if (text.contains('refused')) return 'Koneksi ditolak.';
-    return e.toString();
-  }
 
   @override
   void dispose() {

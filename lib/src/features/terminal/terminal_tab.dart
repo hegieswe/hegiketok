@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../session/terminal_session.dart';
@@ -18,6 +19,9 @@ class TerminalTab implements WorkspaceTab {
   @override
   IconData get icon =>
       session.isLocal ? Icons.terminal_rounded : Icons.cloud_outlined;
+
+  @override
+  ValueListenable<bool> get connection => session.connected;
 
   @override
   Widget build(BuildContext context) {
