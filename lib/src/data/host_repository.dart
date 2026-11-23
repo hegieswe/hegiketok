@@ -16,8 +16,12 @@ import '../models/ssh_host.dart';
 ///   yang memakai **Keychain** macOS. Tidak pernah ditulis ke disk sebagai
 ///   teks biasa.
 class HostRepository {
-  HostRepository({FlutterSecureStorage? secureStorage, Directory? directory})
-      : _dirOverride = directory,
+  HostRepository({
+    FlutterSecureStorage? secureStorage,
+    Directory? directory,
+    DateTime Function()? clock,
+  })  : _dirOverride = directory,
+        _clock = clock ?? DateTime.now,
         _secure = secureStorage ??
             const FlutterSecureStorage(
               // Keychain legacy (file-based) di macOS: tidak memerlukan
@@ -32,6 +36,12 @@ class HostRepository {
 
   /// Override direktori — dipakai pengujian agar tak bergantung path_provider.
   final Directory? _dirOverride;
+
+  /// Sumber waktu (diganti pengujian agar nama cadangan deterministik).
+  final DateTime Function() _clock;
+
+  /// Jumlah cadangan `hosts.json` yang disimpan; yang lebih lama dibuang.
+  static const int maxBackups = 15;
 
   File? _cachedFile;
 
@@ -63,12 +73,122 @@ class HostRepository {
     }
   }
 
+  /// Tulis daftar host. Sebelum menimpa, isi lama disalin ke folder
+  /// `backups/` (lihat [listBackups]); penulisan dilakukan ke berkas sementara
+  /// lalu di-rename, sehingga `hosts.json` tidak pernah setengah tertulis.
   Future<void> _writeHosts(List<SshHost> hosts) async {
     final file = await _hostsFile();
     const encoder = JsonEncoder.withIndent('  ');
-    await file.writeAsString(
-      encoder.convert(hosts.map((h) => h.toJson()).toList()),
-    );
+    final next = encoder.convert(hosts.map((h) => h.toJson()).toList());
+
+    String current = '';
+    try {
+      current = await file.readAsString();
+    } catch (_) {
+      // Berkas lama tak terbaca → tak ada yang bisa dicadangkan.
+    }
+    if (current == next) return; // tak ada perubahan
+    await _backup(current);
+
+    final tmp = File('${file.path}.tmp');
+    await tmp.writeAsString(next, flush: true);
+    await tmp.rename(file.path);
+  }
+
+  Future<Directory> _backupDir() async {
+    final file = await _hostsFile();
+    return Directory('${file.parent.path}/backups');
+  }
+
+  // Simpan [content] (isi hosts.json sebelum ditimpa) sebagai cadangan.
+  // Daftar kosong tidak dicadangkan — tak ada yang perlu diselamatkan, dan
+  // itu akan menggeser cadangan yang berisi. Kegagalan mencadangkan tidak
+  // boleh menggagalkan penyimpanan.
+  Future<void> _backup(String content) async {
+    try {
+      final trimmed = content.trim();
+      if (trimmed.isEmpty || trimmed == '[]') return;
+      final dir = await _backupDir();
+      await dir.create(recursive: true);
+
+      final existing = await _backupFiles(dir);
+      if (existing.isNotEmpty &&
+          await existing.first.readAsString() == content) {
+        return; // sama dengan cadangan terbaru
+      }
+
+      final t = _clock().toUtc();
+      String two(int n) => n.toString().padLeft(2, '0');
+      final stamp = '${t.year}${two(t.month)}${two(t.day)}-'
+          '${two(t.hour)}${two(t.minute)}${two(t.second)}-'
+          '${t.millisecond.toString().padLeft(3, '0')}';
+      await File('${dir.path}/hosts-$stamp.json')
+          .writeAsString(content, flush: true);
+
+      final all = await _backupFiles(dir);
+      for (final old in all.skip(maxBackups)) {
+        try {
+          await old.delete();
+        } catch (_) {}
+      }
+    } catch (_) {
+      // Lihat komentar di atas: terbaik-usaha.
+    }
+  }
+
+  // Berkas cadangan, terbaru lebih dulu (nama berisi cap waktu → urut nama).
+  Future<List<File>> _backupFiles(Directory dir) async {
+    if (!await dir.exists()) return [];
+    final files = <File>[];
+    await for (final e in dir.list()) {
+      final name = e.uri.pathSegments.last;
+      if (e is File && name.startsWith('hosts-') && name.endsWith('.json')) {
+        files.add(e);
+      }
+    }
+    files.sort((a, b) => b.path.compareTo(a.path));
+    return files;
+  }
+
+  /// Cadangan daftar host yang tersedia, terbaru lebih dulu. Cadangan yang
+  /// rusak dilewati.
+  Future<List<HostBackup>> listBackups() async {
+    final out = <HostBackup>[];
+    for (final f in await _backupFiles(await _backupDir())) {
+      try {
+        final list = jsonDecode(await f.readAsString()) as List<dynamic>;
+        final hosts = list
+            .map((e) => SshHost.fromJson(e as Map<String, dynamic>))
+            .toList();
+        final time = _parseBackupTime(f.uri.pathSegments.last) ??
+            (await f.lastModified());
+        out.add(HostBackup(file: f, time: time, hosts: hosts));
+      } catch (_) {
+        // Cadangan rusak → tidak ditawarkan.
+      }
+    }
+    return out;
+  }
+
+  static DateTime? _parseBackupTime(String name) {
+    final m = RegExp(r'^hosts-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-(\d{3})\.json$')
+        .firstMatch(name);
+    if (m == null) return null;
+    int g(int i) => int.parse(m.group(i)!);
+    return DateTime.utc(g(1), g(2), g(3), g(4), g(5), g(6), g(7)).toLocal();
+  }
+
+  /// Ganti daftar host dengan isi [backup]. Daftar yang sekarang dicadangkan
+  /// lebih dulu, jadi pemulihan ini sendiri bisa dibatalkan. Rahasia di
+  /// Keychain tidak disentuh: host yang ID-nya sama mendapat kembali
+  /// password/key-nya. Mengembalikan jumlah host yang dipulihkan.
+  Future<int> restoreBackup(HostBackup backup) async {
+    final content = await backup.file.readAsString();
+    final list = jsonDecode(content) as List<dynamic>;
+    final hosts =
+        list.map((e) => SshHost.fromJson(e as Map<String, dynamic>)).toList();
+    await _writeHosts(hosts);
+    return hosts.length;
   }
 
   /// Baca daftar host untuk DITULIS ULANG. Berbeda dari [loadHosts], berkas
@@ -158,4 +278,15 @@ class HostRepository {
   String _pwKey(String id) => 'host_${id}_password';
   String _keyKey(String id) => 'host_${id}_privateKey';
   String _passKey(String id) => 'host_${id}_passphrase';
+}
+
+/// Satu cadangan otomatis daftar host.
+class HostBackup {
+  const HostBackup({required this.file, required this.time, required this.hosts});
+
+  final File file;
+
+  /// Saat cadangan dibuat (= saat daftar itu digantikan).
+  final DateTime time;
+  final List<SshHost> hosts;
 }

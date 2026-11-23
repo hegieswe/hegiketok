@@ -9,6 +9,7 @@ import '../../session/terminal_session.dart';
 import '../../ssh/connection_progress.dart';
 import '../../ssh/port_forward.dart';
 import '../../ssh/ssh_connector.dart';
+import '../../ssh/ssh_errors.dart';
 
 /// Sesi terminal SSH: membuka koneksi ke server remote dengan [dartssh2]
 /// (SSH murni Dart, tanpa binary eksternal) dan menyalurkan shell-nya ke
@@ -24,7 +25,12 @@ class SshTerminalSession implements TerminalSession {
     this.label,
     this.startupCommand,
     this.persistent = false,
+    this._connect,
   });
+
+  /// Pembuka koneksi (null = [connectSsh]; diganti pengujian integrasi).
+  final Future<SshConnection> Function(SshCredentials, ConnectionProgress)?
+      _connect;
 
   final SshCredentials credentials;
 
@@ -66,6 +72,14 @@ class SshTerminalSession implements TerminalSession {
   @override
   ValueListenable<bool> get connected => _connected;
 
+  /// Kegagalan koneksi PERTAMA (mis. login ditolak). null = tidak ada. UI
+  /// menampilkan saran + tombol "Coba lagi" / "Edit host" dari sini.
+  final ValueNotifier<SshFailure?> failure = ValueNotifier(null);
+
+  /// Dipanggil saat pengguna memilih "Edit host" pada banner kegagalan.
+  /// null = sesi ini bukan dari host tersimpan (tombol disembunyikan).
+  VoidCallback? onEditHost;
+
   /// Manajer port-forward aktif; tersedia setelah terhubung.
   PortForwardManager? forwards;
 
@@ -83,8 +97,18 @@ class SshTerminalSession implements TerminalSession {
   @override
   String get title => label ?? credentials.label;
 
+  bool _maintaining = false;
+
   @override
   void start() {
+    _maintain();
+  }
+
+  /// Coba sambung lagi setelah kegagalan (tombol "Coba lagi").
+  void retry() {
+    if (_disposed || _maintaining) return;
+    failure.value = null;
+    _status('Mencoba lagi…');
     _maintain();
   }
 
@@ -92,6 +116,16 @@ class SshTerminalSession implements TerminalSession {
   /// sambung ulang dengan backoff (sampai [_maxReconnect] kali). Kegagalan
   /// koneksi PERTAMA (mis. salah password) tidak di-loop — langsung lapor.
   Future<void> _maintain() async {
+    if (_maintaining) return;
+    _maintaining = true;
+    try {
+      await _maintainLoop();
+    } finally {
+      _maintaining = false;
+    }
+  }
+
+  Future<void> _maintainLoop() async {
     var attempt = 0;
     while (!_disposed) {
       try {
@@ -105,10 +139,15 @@ class SshTerminalSession implements TerminalSession {
         if (_disposed) break;
         if (!_everConnected) {
           // Belum pernah berhasil → jangan coba terus (kemungkinan kredensial/alamat salah).
-          _error(_friendlyError(e));
+          final f = describeSshError(e, credentials: credentials);
+          _error(f.full);
+          failure.value = f;
           break;
         }
-        _status('Koneksi terputus: ${_friendlyError(e)}', ansi: 33);
+        _status(
+            'Koneksi terputus: '
+            '${describeSshError(e, credentials: credentials).message}',
+            ansi: 33);
       }
 
       _cleanupConn();
@@ -131,7 +170,10 @@ class SshTerminalSession implements TerminalSession {
   /// (koneksi hidup), false tak akan terjadi — melempar bila gagal konek.
   Future<bool> _runSession() async {
     progress.reset();
-    final conn = await connectSsh(credentials, progress: progress);
+    final connect = _connect;
+    final conn = connect != null
+        ? await connect(credentials, progress)
+        : await connectSsh(credentials, progress: progress);
     _conn = conn;
     forwards = PortForwardManager(conn.client);
 
@@ -273,24 +315,6 @@ class SshTerminalSession implements TerminalSession {
     terminal.write('\r\n\x1b[31m$msg\x1b[0m\r\n');
   }
 
-  /// Ubah exception teknis jadi pesan yang mudah dipahami.
-  String _friendlyError(Object e) {
-    final text = e.toString().toLowerCase();
-    if (text.contains('auth')) {
-      return 'Autentikasi gagal — periksa username & kredensial.';
-    }
-    if (text.contains('refused')) {
-      return 'Koneksi ditolak — pastikan server & port benar, serta SSH aktif.';
-    }
-    if (text.contains('timed out') || text.contains('timeout')) {
-      return 'Koneksi timeout — server tidak merespons.';
-    }
-    if (text.contains('failed host lookup') || text.contains('nodename')) {
-      return 'Host tidak ditemukan — periksa alamat server.';
-    }
-    return 'Gagal konek: $e';
-  }
-
   @override
   void dispose() {
     _disposed = true; // hentikan loop reconnect
@@ -299,6 +323,7 @@ class SshTerminalSession implements TerminalSession {
     forwards?.dispose();
     _conn?.close();
     suggestions.dispose();
+    failure.dispose();
     progress.dispose();
     _connected.dispose();
     _session = null;

@@ -5,6 +5,7 @@ import '../../ssh/connection_progress.dart';
 import '../../ssh/ssh_connector.dart';
 import 'cron_models.dart';
 import 'cron_service.dart';
+import '../../ssh/ssh_errors.dart';
 
 /// Mengelola crontab satu server (via SSH): list + tambah/edit/hapus/toggle.
 class CronController extends ChangeNotifier {
@@ -97,15 +98,8 @@ class CronController extends ChangeNotifier {
     return err.isEmpty ? null : err;
   }
 
-  String _friendly(Object e) {
-    final t = e.toString().toLowerCase();
-    if (t.contains('auth')) return 'Autentikasi gagal.';
-    if (t.contains('timed out') || t.contains('timeout')) {
-      return 'Koneksi timeout — server tidak merespons.';
-    }
-    if (t.contains('refused')) return 'Koneksi ditolak.';
-    return 'Gagal: $e';
-  }
+  String _friendly(Object e) =>
+      describeSshError(e, credentials: credentials).full;
 
   @override
   void dispose() {

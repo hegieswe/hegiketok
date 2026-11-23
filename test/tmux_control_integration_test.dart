@@ -14,6 +14,8 @@ import 'package:nexus_term/src/ssh/ssh_connector.dart';
 import 'package:nexus_term/src/ssh/tmux_control.dart';
 import 'package:nexus_term/src/ssh/tmux_control_client.dart';
 
+import 'support/test_server.dart';
+
 const _host = '127.0.0.1';
 const _port = 2222;
 const _user = 'nexus';
@@ -50,13 +52,7 @@ Future<void> _until(bool Function() cond, String what,
 }
 
 Future<void> main() async {
-  String? skip;
-  try {
-    final probe = await _sh('command -v tmux >/dev/null 2>&1 && echo ADA');
-    if (!probe.contains('ADA')) skip = 'tmux tidak terpasang di container uji.';
-  } catch (_) {
-    skip = 'Server uji (nexus-ssh-test di 127.0.0.1:2222) tidak berjalan.';
-  }
+  final skip = await integrationSkipReason(needTmux: true);
 
   late Directory tmp;
   late TmuxControlClient client;

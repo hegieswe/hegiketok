@@ -16,33 +16,17 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_term/src/features/server_info/server_info_collector.dart';
 
+import 'support/test_server.dart';
+
 const _host = '127.0.0.1';
 const _port = 2222;
 const _user = 'nexus';
 const _pass = 'nexus123';
 const _workDir = '/config'; // direktori yang bisa ditulis user nexus
-const _skipReason =
-    'Server uji (container nexus-ssh-test di 127.0.0.1:2222) tidak berjalan.';
-
-Future<bool> _reachable() async {
-  try {
-    final socket = await SSHSocket.connect(_host, _port)
-        .timeout(const Duration(seconds: 4));
-    final client = SSHClient(socket,
-        username: _user, onPasswordRequest: () => _pass);
-    await client.authenticated;
-    client.close();
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
 Future<void> main() async {
   // Keterjangkauan dicek SEBELUM tes didaftarkan supaya grup yang tak bisa
   // jalan dilaporkan sebagai "skipped" oleh runner, bukan "passed".
-  final serverUp = await _reachable();
-  final skip = serverUp ? null : _skipReason;
+  final skip = await integrationSkipReason();
 
   group('SSH/SFTP integration', () {
     late SSHClient client;

@@ -5,6 +5,7 @@ import 'package:dartssh2/dartssh2.dart';
 import '../models/ssh_credentials.dart';
 import 'connection_progress.dart';
 import 'known_hosts.dart';
+import 'ssh_errors.dart';
 
 /// Hasil koneksi SSH: klien yang terautentikasi ke host target plus seluruh
 /// rantai jump-host (bastion) di belakangnya agar bisa dibersihkan bersama.
@@ -78,6 +79,10 @@ Future<SshConnection> connectSsh(
 
       // 2) Autentikasi hop ini.
       final auth = progress?.begin('Autentikasi ${hop.username}@${hop.host}');
+      // Penolakan host key dilaporkan pustaka SSH sebagai galat autentikasi
+      // biasa; dicatat di sini agar pesannya tidak menyalahkan password.
+      HostKeyStatus? rejectedHostKey;
+      SSHClient? pending;
       try {
         final identities = hop.usesKey
             ? SSHKeyPair.fromPem(
@@ -107,7 +112,10 @@ Future<SshConnection> connectSsh(
             final known = await store.lookup(hostPort);
             final status = classifyHostKey(known, fingerprint);
             if (status == HostKeyStatus.match) return true;
-            if (verifier == null) return false;
+            if (verifier == null) {
+              rejectedHostKey = status;
+              return false;
+            }
             final accepted = await verifier(HostKeyPrompt(
               host: hop.host,
               port: hop.port,
@@ -124,15 +132,29 @@ Future<SshConnection> connectSsh(
                 firstSeen: known?.firstSeen ?? DateTime.now(),
               ));
             }
+            if (!accepted) rejectedHostKey = status;
             return accepted;
           },
         );
+        pending = client;
         await client.authenticated;
         chain.add(client);
         previous = client;
       } catch (e) {
-        if (auth != null) progress!.fail(auth, _friendly(e));
-        rethrow;
+        // Klien yang gagal login belum masuk rantai → tutup di sini.
+        pending?.close();
+        final Object error = rejectedHostKey == null
+            ? e
+            : HostKeyRejectedException(
+                '${hop.host}:${hop.port}',
+                changed: rejectedHostKey == HostKeyStatus.changed,
+              );
+        if (auth != null) {
+          progress!
+              .fail(auth, describeSshError(error, credentials: hop).message);
+        }
+        if (identical(error, e)) rethrow;
+        throw error;
       }
       if (auth != null) {
         progress!.complete(auth, detail: isTarget ? 'terhubung ✓' : 'bastion ✓');
@@ -152,15 +174,4 @@ Future<SshConnection> connectSsh(
 String _short(Object e) {
   final t = e.toString();
   return t.length > 80 ? '${t.substring(0, 80)}…' : t;
-}
-
-/// Pesan error yang ramah pengguna. Kegagalan verifikasi host key (termasuk
-/// penolakan pengguna) diterjemahkan agar tak muncul sebagai string mentah.
-String _friendly(Object e) {
-  final t = e.toString();
-  if (t.contains('Hostkey verification failed') ||
-      t.contains('SSHHostkeyError')) {
-    return 'Verifikasi host key dibatalkan';
-  }
-  return _short(e);
 }

@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../models/ssh_credentials.dart';
 import '../../ssh/ssh_connector.dart';
+import '../../ssh/ssh_errors.dart';
 import '../../ssh/ssh_keys.dart';
 import '../../theme/app_theme.dart';
 
@@ -201,15 +202,17 @@ class _InstallKeyDialogState extends State<_InstallKeyDialog> {
       _error = null;
     });
     SshConnection? conn;
+    var creds = SshCredentials(
+        host: widget.host, port: widget.port, username: widget.username);
     try {
-      final jumps = await widget.resolveJumpChain();
-      conn = await connectSsh(SshCredentials(
+      creds = SshCredentials(
         host: widget.host,
         port: widget.port,
         username: widget.username,
         password: _password.text,
-        jumpHosts: jumps,
-      ));
+        jumpHosts: await widget.resolveJumpChain(),
+      );
+      conn = await connectSsh(creds);
       final outcome = await installPublicKey(conn.client, widget.publicKeyLine);
       if (!mounted) return;
       setState(() {
@@ -220,7 +223,7 @@ class _InstallKeyDialogState extends State<_InstallKeyDialog> {
       if (!mounted) return;
       setState(() {
         _phase = _InstallPhase.failed;
-        _error = _friendlyInstallError(e);
+        _error = _friendlyInstallError(e, creds);
       });
     } finally {
       conn?.close();
@@ -390,18 +393,12 @@ class _InstallKeyDialogState extends State<_InstallKeyDialog> {
   }
 }
 
-String _friendlyInstallError(Object e) {
+String _friendlyInstallError(Object e, SshCredentials credentials) {
   if (e is KeyInstallException) return e.message;
-  final t = e.toString().toLowerCase();
-  if (t.contains('auth')) {
-    return 'Login ditolak — password salah, atau server tidak mengizinkan '
-        'login password.';
+  final f = describeSshError(e, credentials: credentials);
+  if (f.kind == SshFailureKind.auth) {
+    return '${f.message} Periksa password, atau mungkin server tidak '
+        'mengizinkan login dengan password.';
   }
-  if (t.contains('refused')) return 'Koneksi ditolak — cek host & port.';
-  if (t.contains('timed out') || t.contains('timeout')) {
-    return 'Server tidak merespons (timeout).';
-  }
-  if (t.contains('failed host lookup')) return 'Host tidak ditemukan.';
-  if (t.contains('host key')) return 'Host key ditolak.';
-  return 'Gagal: $e';
+  return f.full;
 }

@@ -44,6 +44,12 @@ takes the opposite approach:
 ### SSH
 
 - **Saved hosts** with tags, search, and a per-host OS icon.
+- **Connection test** in the host editor, plus warnings for usernames and
+  addresses that look mistyped, so mistakes surface before you save.
+- **Actionable connection errors**: a failed login names the username that was
+  used and offers "Edit host" and "Retry"; a server that is temporarily
+  blocking you after repeated failures is reported as such, not as a wrong
+  password.
 - **Password and key authentication**, with secrets stored in the OS keychain.
 - **SSH key management**: generate an ed25519 key pair in the host editor,
   view and copy its public key and fingerprint, and install it on the server
@@ -77,6 +83,8 @@ Opened per host over the same SSH connection:
 
 - **Encrypted backup and restore** of hosts, snippets, and known hosts
   (AES-256-GCM, key derived from your password).
+- **Automatic host-list history**: every change keeps the previous version
+  (the last 15), restorable from Settings. Secrets stay in the keychain.
 - **Update check** against this repository's GitHub Releases, with in-app
   download and checksum verification.
 - **Light, dark, and system themes.**
@@ -129,7 +137,8 @@ flutter analyze
 flutter test
 ```
 
-Most tests are self-contained. The integration tests (SSH, SFTP, key install,
+Most tests are self-contained, including widget tests that drive the host
+editor and dialogs. The integration tests (SSH, SFTP, key install,
 agent forwarding, tmux) expect an OpenSSH server on `127.0.0.1:2222` with user
 `nexus` and password `nexus123`, and tmux installed for the tmux tests. When
 that server is not running they are reported as skipped. These are throwaway

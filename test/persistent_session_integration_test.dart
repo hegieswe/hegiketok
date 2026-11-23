@@ -6,6 +6,8 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_term/src/features/ssh/ssh_terminal_session.dart';
 
+import 'support/test_server.dart';
+
 Future<SSHClient> _raw() async {
   final socket = await SSHSocket.connect('127.0.0.1', 2222)
       .timeout(const Duration(seconds: 4));
@@ -47,14 +49,7 @@ Future<String> _session(List<String> lines, String marker) async {
 }
 
 Future<void> main() async {
-  String? skip;
-  try {
-    if (!(await _sh('command -v tmux >/dev/null && echo ADA')).contains('ADA')) {
-      skip = 'tmux tidak terpasang di container uji.';
-    }
-  } catch (_) {
-    skip = 'Server uji (nexus-ssh-test di 127.0.0.1:2222) tidak berjalan.';
-  }
+  final skip = await integrationSkipReason(needTmux: true);
 
   test('nama sesi aman untuk shell', () {
     expect(persistentSessionName('Server Produksi #1'), 'hegi-Server-Produksi-1');

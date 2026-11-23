@@ -12,12 +12,12 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexus_term/src/ssh/ssh_keys.dart';
 
+import 'support/test_server.dart';
+
 const _host = '127.0.0.1';
 const _port = 2222;
 const _user = 'nexus';
 const _pass = 'nexus123';
-const _skipReason =
-    'Server uji (container nexus-ssh-test di 127.0.0.1:2222) tidak berjalan.';
 
 Future<SSHClient> _passwordClient() async {
   final socket = await SSHSocket.connect(_host, _port)
@@ -31,14 +31,8 @@ Future<SSHClient> _passwordClient() async {
 Future<void> main() async {
   // Keterjangkauan dicek SEBELUM tes didaftarkan supaya tes yang tak bisa
   // jalan dilaporkan sebagai "skipped" oleh runner, bukan "passed".
-  bool serverUp;
-  try {
-    (await _passwordClient()).close();
-    serverUp = true;
-  } catch (_) {
-    serverUp = false;
-  }
-  final skip = serverUp ? null : _skipReason;
+  final skip = await integrationSkipReason();
+  final serverUp = skip == null;
   final key = generateEd25519Key(comment: 'hegiketok@uji-integrasi');
 
   tearDownAll(() async {

@@ -130,15 +130,37 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
 
   Future<void> _openSavedHost(SshHost host) async {
     final creds = await _credentialsFor(host);
-    _addHostTab(
-      TerminalTab(SshTerminalSession(
-        creds,
-        label: host.label,
-        startupCommand: host.startupCommand,
-        persistent: host.persistentSession,
-      )..start()),
-      host.id,
+    final session = SshTerminalSession(
+      creds,
+      label: host.label,
+      startupCommand: host.startupCommand,
+      persistent: host.persistentSession,
     );
+    final tab = TerminalTab(session);
+    // Banner kegagalan → "Edit host": buka editor; bila disimpan, tutup tab
+    // yang gagal dan sambungkan ulang dengan data terbaru.
+    session.onEditHost = () => _editHostAndReconnect(host.id, tab);
+    session.start();
+    _addHostTab(tab, host.id);
+  }
+
+  Future<void> _editHostAndReconnect(String hostId, WorkspaceTab tab) async {
+    SshHost? find() {
+      final hosts = ref.read(hostsProvider).asData?.value ?? const <SshHost>[];
+      for (final h in hosts) {
+        if (h.id == hostId) return h;
+      }
+      return null;
+    }
+
+    final current = find();
+    if (current == null || !mounted) return;
+    final saved = await showHostEditor(context, existing: current);
+    if (saved != true || !mounted) return;
+    final index = _tabs.indexOf(tab);
+    if (index >= 0) _close(index);
+    final updated = find();
+    if (updated != null) await _openSavedHost(updated);
   }
 
   Future<void> _openSftp(SshHost host) async {

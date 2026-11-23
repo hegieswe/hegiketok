@@ -9,6 +9,7 @@ import 'package:xterm/xterm.dart';
 import '../models/ssh_credentials.dart';
 import 'connection_progress.dart';
 import 'ssh_connector.dart';
+import 'ssh_errors.dart';
 import 'tmux_control.dart';
 
 /// Satu jendela tmux (ditampilkan sebagai tab di dalam view control-mode).
@@ -198,7 +199,7 @@ class TmuxControlClient extends ChangeNotifier {
         }
       });
     } catch (e) {
-      error = _friendly(e);
+      error = describeSshError(e, credentials: credentials).full;
       _setConnected(false);
       _safeNotify();
     }
@@ -507,17 +508,4 @@ class TmuxControlClient extends ChangeNotifier {
     online.dispose();
     super.dispose();
   }
-}
-
-String _friendly(Object e) {
-  final t = e.toString().toLowerCase();
-  if (t.contains('auth')) return 'Autentikasi gagal — periksa kredensial.';
-  if (t.contains('refused')) return 'Koneksi ditolak — cek host & port.';
-  if (t.contains('timed out') || t.contains('timeout')) {
-    return 'Koneksi timeout — server tidak merespons.';
-  }
-  if (t.contains('failed host lookup')) {
-    return 'Host tidak ditemukan — periksa alamat.';
-  }
-  return 'Gagal konek: $e';
 }

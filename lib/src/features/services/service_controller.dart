@@ -7,6 +7,7 @@ import '../../ssh/connection_progress.dart';
 import '../../ssh/ssh_connector.dart';
 import 'service_models.dart';
 import 'service_service.dart';
+import '../../ssh/ssh_errors.dart';
 
 /// Mengelola panel service systemd untuk satu server (via SSH).
 class ServiceController extends ChangeNotifier {
@@ -95,15 +96,8 @@ class ServiceController extends ChangeNotifier {
     }
   }
 
-  String _friendly(Object e) {
-    final t = e.toString().toLowerCase();
-    if (t.contains('auth')) return 'Autentikasi gagal.';
-    if (t.contains('timed out') || t.contains('timeout')) {
-      return 'Koneksi timeout — server tidak merespons.';
-    }
-    if (t.contains('refused')) return 'Koneksi ditolak.';
-    return 'Gagal: $e';
-  }
+  String _friendly(Object e) =>
+      describeSshError(e, credentials: credentials).full;
 
   @override
   void dispose() {

@@ -6,6 +6,7 @@ import '../ssh/known_hosts_dialog.dart';
 import '../updates/update_checker.dart';
 import '../updates/update_ui.dart';
 import 'backup_actions.dart';
+import 'host_backups_dialog.dart';
 import 'settings_providers.dart';
 import 'terminal_themes.dart';
 
@@ -119,6 +120,13 @@ class SettingsPanel extends ConsumerWidget {
                     title: 'Restore dari backup',
                     subtitle: 'Impor berkas .hvault',
                     onTap: () => importVault(context, ref),
+                  ),
+                  const SizedBox(height: 8),
+                  _SettingsTile(
+                    icon: Icons.history_rounded,
+                    title: 'Riwayat daftar host',
+                    subtitle: 'Cadangan otomatis — pulihkan versi sebelumnya',
+                    onTap: () => showHostBackupsDialog(context),
                   ),
                   const SizedBox(height: 22),
                   _sectionLabel('APLIKASI'),

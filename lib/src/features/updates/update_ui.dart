@@ -55,7 +55,7 @@ Future<void> maybeAutoCheckForUpdate(
       label: 'Lihat',
       textColor: AppTheme.accent,
       onPressed: () {
-        if (context.mounted) _showUpdateDialog(context, result.info);
+        if (context.mounted) showUpdateDialog(context, result.info);
       },
     ),
   ));
@@ -87,11 +87,12 @@ Future<void> checkForUpdateInteractive(BuildContext context) async {
         behavior: SnackBarBehavior.floating,
       ));
     case UpdateAvailable(:final info):
-      await _showUpdateDialog(context, info);
+      await showUpdateDialog(context, info);
   }
 }
 
-Future<void> _showUpdateDialog(BuildContext context, UpdateInfo info) {
+/// Dialog "Pembaruan tersedia" untuk [info].
+Future<void> showUpdateDialog(BuildContext context, UpdateInfo info) {
   return showDialog<void>(
     context: context,
     builder: (_) => _UpdateDialog(info: info),

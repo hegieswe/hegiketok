@@ -6,7 +6,10 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/host_credentials.dart';
 import '../../data/host_providers.dart';
+import '../../models/ssh_credentials.dart';
 import '../../models/ssh_host.dart';
+import '../../ssh/connection_test.dart';
+import '../../ssh/ssh_errors.dart';
 import '../../ssh/ssh_keys.dart';
 import '../../theme/app_theme.dart';
 import 'host_os.dart';
@@ -66,6 +69,12 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
   String? _saveError;
   bool _saving = false;
 
+  // "Tes koneksi": sedang berjalan + hasil terakhir (dibatalkan bila data
+  // koneksi diubah, supaya hasil lama tidak menyesatkan).
+  bool _testing = false;
+  ConnectionTestResult? _testResult;
+  String? _testNote;
+
   bool get _isEdit => widget.existing != null;
 
   // ID host baru dibuat SEKALI per dialog, supaya menekan Simpan lagi setelah
@@ -88,6 +97,95 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
     _tags.addAll(e?.tags ?? const []);
     _startup = TextEditingController(text: e?.startupCommand ?? '');
     if (e != null) _loadStoredSecret(e.id);
+    for (final c in [_host, _port, _user, _password, _passphrase]) {
+      c.addListener(_onConnectionFieldChanged);
+    }
+  }
+
+  // Dipanggil tiap kali data koneksi berubah: segarkan peringatan (username,
+  // alamat) dan buang hasil tes yang sudah tidak berlaku.
+  void _onConnectionFieldChanged() {
+    if (!mounted) return;
+    setState(() {
+      _testResult = null;
+      _testNote = null;
+    });
+  }
+
+  /// Kredensial dari isi form saat ini (belum disimpan), untuk "Tes koneksi".
+  /// Mengembalikan null + mengisi [_testNote] bila datanya belum lengkap.
+  Future<SshCredentials?> _formCredentials() async {
+    final host = _host.text.trim();
+    final user = _user.text.trim();
+    if (host.isEmpty || user.isEmpty) {
+      _testNote = 'Isi Host dan Username dulu.';
+      return null;
+    }
+    final repo = ref.read(hostRepositoryProvider);
+    final all = ref.read(hostsProvider).asData?.value ?? const <SshHost>[];
+    final jumps = await resolveJumpChain(
+      _jumpHostId,
+      loadSecret: repo.loadSecret,
+      allHosts: all,
+      visited: {if (widget.existing != null) widget.existing!.id},
+    );
+    final port = int.tryParse(_port.text.trim()) ?? 22;
+
+    if (_method == SshAuthMethod.password) {
+      final pw = _password.text.isNotEmpty ? _password.text : _stored?.password;
+      if (pw == null || pw.isEmpty) {
+        _testNote = 'Isi password dulu.';
+        return null;
+      }
+      return SshCredentials(
+        host: host,
+        port: port,
+        username: user,
+        password: pw,
+        jumpHosts: jumps,
+      );
+    }
+
+    final key = _activeKey;
+    if (key == null || key.trim().isEmpty) {
+      _testNote = 'Muat private key atau buat key baru dulu.';
+      return null;
+    }
+    final typed = _passphrase.text;
+    final pass = typed.isNotEmpty
+        ? typed
+        : (_loadedKey == null ? _stored?.passphrase : null);
+    return SshCredentials(
+      host: host,
+      port: port,
+      username: user,
+      privateKey: key,
+      passphrase: pass,
+      jumpHosts: jumps,
+    );
+  }
+
+  Future<void> _testConnection() async {
+    if (_testing) return;
+    setState(() {
+      _testing = true;
+      _testResult = null;
+      _testNote = null;
+    });
+    ConnectionTestResult? result;
+    try {
+      final creds = await _formCredentials();
+      if (creds != null) {
+        result = await ref.read(connectionTesterProvider)(creds);
+      }
+    } catch (e) {
+      result = ConnectionTestResult.failed(describeSshError(e));
+    }
+    if (!mounted) return;
+    setState(() {
+      _testing = false;
+      _testResult = result;
+    });
   }
 
   Future<void> _loadStoredSecret(String id) async {
@@ -130,8 +228,11 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
         ? typed
         : (_loadedKey == null ? _stored?.passphrase : null);
     try {
-      final info =
-          describePrivateKey(pem, passphrase: pass, comment: _keyComment);
+      final info = describePrivateKey(
+        pem,
+        passphrase: pass,
+        comment: _keyComment,
+      );
       setState(() {
         _publicKey = info;
         _publicKeyError = null;
@@ -150,8 +251,10 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: AppTheme.surface,
-          title: Text('Ganti key host ini?',
-              style: TextStyle(color: AppTheme.textPrimary, fontSize: 16)),
+          title: Text(
+            'Ganti key host ini?',
+            style: TextStyle(color: AppTheme.textPrimary, fontSize: 16),
+          ),
           content: SizedBox(
             width: 380,
             child: Text(
@@ -164,14 +267,14 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child:
-                  Text('Batal', style: TextStyle(color: AppTheme.textMuted)),
+              child: Text('Batal', style: TextStyle(color: AppTheme.textMuted)),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.accent,
-                  foregroundColor: AppTheme.onAccent),
+                backgroundColor: AppTheme.accent,
+                foregroundColor: AppTheme.onAccent,
+              ),
               child: const Text('Buat key baru'),
             ),
           ],
@@ -186,7 +289,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
       _loadedKey = key.privatePem;
       _publicKey = key.public;
       _publicKeyError = null;
-      _keyStatus = '✓ Key ed25519 baru dibuat — disimpan ke Keychain saat '
+      _keyStatus =
+          '✓ Key ed25519 baru dibuat — disimpan ke Keychain saat '
           'kamu menekan Simpan';
     });
   }
@@ -195,8 +299,9 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
     final info = _publicKey;
     if (info == null) return;
     if (_host.text.trim().isEmpty || _user.text.trim().isEmpty) {
-      setState(() =>
-          _keyStatus = '✗ Isi Host dan Username dulu sebelum memasang key');
+      setState(
+        () => _keyStatus = '✗ Isi Host dan Username dulu sebelum memasang key',
+      );
       return;
     }
     final repo = ref.read(hostRepositoryProvider);
@@ -272,7 +377,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
         _activeKey == null &&
         (!_isEdit || _secretKnown)) {
       setState(
-          () => _keyStatus = '✗ Muat file private key atau buat key baru dulu');
+        () => _keyStatus = '✗ Muat file private key atau buat key baru dulu',
+      );
       return;
     }
 
@@ -281,31 +387,31 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
       _saveError = null;
     });
 
-    final host = (widget.existing ??
-            SshHost(
-              id: _newHostId,
-              label: '',
-              host: '',
-              username: '',
-            ))
-        .copyWith(
-      label: _label.text.trim().isEmpty ? _host.text.trim() : _label.text.trim(),
-      host: _host.text.trim(),
-      port: int.tryParse(_port.text.trim()) ?? 22,
-      username: _user.text.trim(),
-      authMethod: _method,
-      jumpHostId: _jumpHostId,
-      clearJumpHost: _jumpHostId == null,
-      tags: List<String>.unmodifiable(_tags),
-      startupCommand: _startup.text.trim(),
-      os: _os,
-      persistentSession: _persistent,
-      forwardAgent: _method == SshAuthMethod.key && _forwardAgent,
-    );
+    final host =
+        (widget.existing ??
+                SshHost(id: _newHostId, label: '', host: '', username: ''))
+            .copyWith(
+              label: _label.text.trim().isEmpty
+                  ? _host.text.trim()
+                  : _label.text.trim(),
+              host: _host.text.trim(),
+              port: int.tryParse(_port.text.trim()) ?? 22,
+              username: _user.text.trim(),
+              authMethod: _method,
+              jumpHostId: _jumpHostId,
+              clearJumpHost: _jumpHostId == null,
+              tags: List<String>.unmodifiable(_tags),
+              startupCommand: _startup.text.trim(),
+              os: _os,
+              persistentSession: _persistent,
+              forwardAgent: _method == SshAuthMethod.key && _forwardAgent,
+            );
 
     final isPassword = _method == SshAuthMethod.password;
     try {
-      await ref.read(hostsProvider.notifier).save(
+      await ref
+          .read(hostsProvider.notifier)
+          .save(
             host,
             password: isPassword && _password.text.isNotEmpty
                 ? _password.text
@@ -316,8 +422,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
             passphrase: isPassword
                 ? null
                 : (_passphrase.text.isNotEmpty
-                    ? _passphrase.text
-                    : (_loadedKey != null ? '' : null)),
+                      ? _passphrase.text
+                      : (_loadedKey != null ? '' : null)),
           );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -345,8 +451,7 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.dns_outlined,
-                        color: AppTheme.accent, size: 20),
+                    Icon(Icons.dns_outlined, color: AppTheme.accent, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       _isEdit ? 'Edit Host' : 'Host Baru',
@@ -392,6 +497,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                     ),
                   ],
                 ),
+                if (hostAddressWarning(_host.text) != null)
+                  _fieldWarning(hostAddressWarning(_host.text)!),
                 const SizedBox(height: 14),
                 _LabeledField(
                   label: 'Username',
@@ -399,6 +506,8 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                   hint: 'mis. root',
                   validator: _required,
                 ),
+                if (usernameWarning(_user.text) != null)
+                  _fieldWarning(usernameWarning(_user.text)!),
                 const SizedBox(height: 18),
                 _authMethodToggle(),
                 const SizedBox(height: 14),
@@ -425,25 +534,65 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                       color: AppTheme.danger.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(AppTheme.rSm),
                       border: Border.all(
-                          color: AppTheme.danger.withValues(alpha: 0.4)),
+                        color: AppTheme.danger.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
                       _saveError!,
-                      style: TextStyle(
-                          color: AppTheme.danger, fontSize: 12),
+                      style: TextStyle(color: AppTheme.danger, fontSize: 12),
                     ),
                   ),
                 ],
+                if (_testResult != null || _testNote != null) ...[
+                  const SizedBox(height: 16),
+                  _testResultBox(),
+                ],
                 const SizedBox(height: 24),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    // Expanded + label ber-elipsis: baris ini tetap muat pada
+                    // huruf besar / teks yang lebih panjang.
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: (_saving || _testing)
+                              ? null
+                              : _testConnection,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                            side: BorderSide(color: AppTheme.borderStrong),
+                          ),
+                          icon: _testing
+                              ? SizedBox(
+                                  width: 13,
+                                  height: 13,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.accent,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.wifi_tethering_rounded,
+                                  size: 15,
+                                ),
+                          label: Text(
+                            _testing ? 'Menguji…' : 'Tes koneksi',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     TextButton(
                       onPressed: _saving
                           ? null
                           : () => Navigator.of(context).pop(false),
-                      child: Text('Batal',
-                          style: TextStyle(color: AppTheme.textMuted)),
+                      child: Text(
+                        'Batal',
+                        style: TextStyle(color: AppTheme.textMuted),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
@@ -457,7 +606,9 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppTheme.onAccent),
+                                strokeWidth: 2,
+                                color: AppTheme.onAccent,
+                              ),
                             )
                           : const Text('Simpan'),
                     ),
@@ -471,12 +622,101 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
     );
   }
 
+  /// Peringatan kecil di bawah sebuah kolom (tidak menghalangi simpan).
+  Widget _fieldWarning(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 14, color: AppTheme.warning),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: AppTheme.warning, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _testResultBox() {
+    final r = _testResult;
+    final ok = r?.ok ?? false;
+    final color = ok
+        ? AppTheme.success
+        : (r == null ? AppTheme.warning : AppTheme.danger);
+    final String title;
+    String? detail;
+    if (r == null) {
+      title = _testNote ?? '';
+    } else if (ok) {
+      title = 'Tersambung sebagai ${_user.text.trim()}@${_host.text.trim()}';
+      detail = r.detail;
+    } else {
+      title = r.failure!.message;
+      detail = r.failure!.hint;
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppTheme.rSm),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            ok
+                ? Icons.check_circle_rounded
+                : (r == null
+                      ? Icons.info_outline_rounded
+                      : Icons.error_outline_rounded),
+            size: 15,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (detail != null && detail.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    detail,
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _authMethodToggle() {
     Widget option(SshAuthMethod m, IconData icon, String text) {
       final selected = _method == m;
       return Expanded(
         child: InkWell(
-          onTap: () => setState(() => _method = m),
+          onTap: () => setState(() {
+            _method = m;
+            _testResult = null;
+            _testNote = null;
+          }),
           borderRadius: BorderRadius.circular(AppTheme.rSm),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -492,9 +732,11 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon,
-                    size: 15,
-                    color: selected ? AppTheme.accent : AppTheme.textMuted),
+                Icon(
+                  icon,
+                  size: 15,
+                  color: selected ? AppTheme.accent : AppTheme.textMuted,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   text,
@@ -538,25 +780,30 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
         ),
         child: Row(
           children: [
-            Icon(Icons.auto_mode_rounded,
-                size: 18,
-                color: _persistent ? AppTheme.accent : AppTheme.textMuted),
+            Icon(
+              Icons.auto_mode_rounded,
+              size: 18,
+              color: _persistent ? AppTheme.accent : AppTheme.textMuted,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Sesi persisten (tmux)',
-                      style: TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
+                  Text(
+                    'Sesi persisten (tmux)',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
-                      'Program tetap hidup saat koneksi putus; sambung ulang '
-                      'melanjutkan sesi. Butuh tmux di server.',
-                      style:
-                          TextStyle(color: AppTheme.textMuted, fontSize: 11.5)),
+                    'Program tetap hidup saat koneksi putus; sambung ulang '
+                    'melanjutkan sesi. Butuh tmux di server.',
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 11.5),
+                  ),
                 ],
               ),
             ),
@@ -579,8 +826,10 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
           children: [
             Icon(Icons.dvr_outlined, size: 14, color: AppTheme.textMuted),
             const SizedBox(width: 6),
-            Text('Sistem operasi (ikon & warna)',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+            Text(
+              'Sistem operasi (ikon & warna)',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -604,11 +853,13 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                     value: o,
                     child: Row(
                       children: [
-                        Icon(o.icon,
-                            size: 16,
-                            color: o == HostOs.auto
-                                ? AppTheme.textMuted
-                                : o.color),
+                        Icon(
+                          o.icon,
+                          size: 16,
+                          color: o == HostOs.auto
+                              ? AppTheme.textMuted
+                              : o.color,
+                        ),
                         const SizedBox(width: 10),
                         Text(o.label),
                       ],
@@ -631,8 +882,10 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
           children: [
             Icon(Icons.sell_outlined, size: 13, color: AppTheme.textMuted),
             const SizedBox(width: 6),
-            Text('Tag (opsional)',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+            Text(
+              'Tag (opsional)',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -659,17 +912,23 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(t,
-                          style: TextStyle(
-                              color: AppTheme.accent,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600)),
+                      Text(
+                        t,
+                        style: TextStyle(
+                          color: AppTheme.accent,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const SizedBox(width: 3),
                       InkWell(
                         onTap: () => setState(() => _tags.remove(t)),
                         borderRadius: BorderRadius.circular(AppTheme.rPill),
-                        child: Icon(Icons.close_rounded,
-                            size: 13, color: AppTheme.accent),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 13,
+                          color: AppTheme.accent,
+                        ),
                       ),
                     ],
                   ),
@@ -679,15 +938,16 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                   constraints: const BoxConstraints(minWidth: 90),
                   child: TextField(
                     controller: _tagInput,
-                    style:
-                        TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                    style: TextStyle(color: AppTheme.textPrimary, fontSize: 13),
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 4),
                       hintText: _tags.isEmpty ? 'tambah tag…' : '+ tag',
-                      hintStyle:
-                          TextStyle(color: AppTheme.textFaint, fontSize: 12.5),
+                      hintStyle: TextStyle(
+                        color: AppTheme.textFaint,
+                        fontSize: 12.5,
+                      ),
                     ),
                     onChanged: (v) {
                       // Koma atau spasi memisah tag.
@@ -723,8 +983,10 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
           children: [
             Icon(Icons.alt_route, size: 14, color: AppTheme.textMuted),
             const SizedBox(width: 6),
-            Text('Jump host / bastion (opsional)',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+            Text(
+              'Jump host / bastion (opsional)',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -741,25 +1003,33 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
               isExpanded: true,
               dropdownColor: AppTheme.surfaceHigh,
               icon: Icon(Icons.arrow_drop_down, color: AppTheme.textMuted),
-              style:
-                  TextStyle(color: AppTheme.textPrimary, fontSize: 14),
-              hint: Text('Koneksi langsung (tanpa bastion)',
-                  style: TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+              style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
+              hint: Text(
+                'Koneksi langsung (tanpa bastion)',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              ),
               items: [
                 DropdownMenuItem<String?>(
                   value: null,
-                  child: Text('Koneksi langsung (tanpa bastion)',
-                      style:
-                          TextStyle(color: AppTheme.textMuted, fontSize: 13)),
+                  child: Text(
+                    'Koneksi langsung (tanpa bastion)',
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                  ),
                 ),
                 for (final h in options)
                   DropdownMenuItem<String?>(
                     value: h.id,
-                    child: Text('${h.label}  ·  ${h.subtitle}',
-                        overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      '${h.label}  ·  ${h.subtitle}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
               ],
-              onChanged: (v) => setState(() => _jumpHostId = v),
+              onChanged: (v) => setState(() {
+                _jumpHostId = v;
+                _testResult = null;
+                _testNote = null;
+              }),
             ),
           ),
         ),
@@ -830,7 +1100,9 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
                 foregroundColor: AppTheme.accent,
                 visualDensity: VisualDensity.compact,
                 textStyle: const TextStyle(
-                    fontSize: 12.5, fontWeight: FontWeight.w600),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               icon: const Icon(Icons.add_moderator_outlined, size: 15),
               label: const Text('Buat key baru (ed25519)'),
@@ -861,8 +1133,10 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
           PublicKeyPanel(info: _publicKey!, onInstall: _installKey),
         ] else if (_publicKeyError != null) ...[
           const SizedBox(height: 10),
-          Text(_publicKeyError!,
-              style: TextStyle(color: AppTheme.warning, fontSize: 12)),
+          Text(
+            _publicKeyError!,
+            style: TextStyle(color: AppTheme.warning, fontSize: 12),
+          ),
         ],
         const SizedBox(height: 14),
         _agentToggle(),
@@ -888,26 +1162,31 @@ class _HostEditorDialogState extends ConsumerState<_HostEditorDialog> {
         ),
         child: Row(
           children: [
-            Icon(Icons.forward_rounded,
-                size: 18,
-                color: _forwardAgent ? AppTheme.warning : AppTheme.textMuted),
+            Icon(
+              Icons.forward_rounded,
+              size: 18,
+              color: _forwardAgent ? AppTheme.warning : AppTheme.textMuted,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Agent forwarding',
-                      style: TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
+                  Text(
+                    'Agent forwarding',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
-                      'Dari server ini kamu bisa ssh/git ke mesin lain memakai '
-                      'key ini, tanpa menyalin key-nya. Aktifkan hanya untuk '
-                      'server yang kamu percaya.',
-                      style:
-                          TextStyle(color: AppTheme.textMuted, fontSize: 11.5)),
+                    'Dari server ini kamu bisa ssh/git ke mesin lain memakai '
+                    'key ini, tanpa menyalin key-nya. Aktifkan hanya untuk '
+                    'server yang kamu percaya.',
+                    style: TextStyle(color: AppTheme.textMuted, fontSize: 11.5),
+                  ),
                 ],
               ),
             ),
@@ -953,8 +1232,7 @@ class _LabeledField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+        Text(label, style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
@@ -965,14 +1243,15 @@ class _LabeledField extends StatelessWidget {
           style: TextStyle(color: AppTheme.textPrimary, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle:
-                TextStyle(color: AppTheme.textFaint, fontSize: 13),
+            hintStyle: TextStyle(color: AppTheme.textFaint, fontSize: 13),
             isDense: true,
             filled: true,
             fillColor: AppTheme.surfaceInput,
             suffixIcon: suffix,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.rSm),
               borderSide: BorderSide(color: AppTheme.border),

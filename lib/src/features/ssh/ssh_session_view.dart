@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../ssh/handshake_stepper.dart';
 import '../../ssh/port_forward.dart';
+import '../../ssh/ssh_errors.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/ui.dart';
 import '../snippets/snippets_dialog.dart';
@@ -36,6 +37,16 @@ class SshSessionView extends StatelessWidget {
               child: HandshakeStepper(progress: session.progress),
             );
           },
+        ),
+        ValueListenableBuilder<SshFailure?>(
+          valueListenable: session.failure,
+          builder: (context, failure, _) => failure == null
+              ? const SizedBox.shrink()
+              : ConnectionFailureBanner(
+                  failure: failure,
+                  onRetry: session.retry,
+                  onEditHost: session.onEditHost,
+                ),
         ),
         _ForwardBar(session: session),
         Expanded(child: SessionView(session.terminal)),
@@ -225,3 +236,70 @@ class _ActiveChip extends StatelessWidget {
 
 /// Listenable kosong untuk placeholder saat manajer forward belum siap.
 class _NullListenable extends ChangeNotifier {}
+
+/// Banner saat koneksi pertama gagal: saran perbaikan + aksi langsung, supaya
+/// pengguna tidak perlu menebak dari pesan teknis.
+class ConnectionFailureBanner extends StatelessWidget {
+  const ConnectionFailureBanner({
+    super.key,
+    required this.failure,
+    required this.onRetry,
+    this.onEditHost,
+  });
+
+  final SshFailure failure;
+  final VoidCallback onRetry;
+
+  /// null = sesi bukan dari host tersimpan → tombol "Edit host" disembunyikan.
+  final VoidCallback? onEditHost;
+
+  @override
+  Widget build(BuildContext context) {
+    final showEdit = onEditHost != null && failure.fixableByEditingHost;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppTheme.danger.withValues(alpha: 0.10),
+        border: Border(bottom: BorderSide(color: AppTheme.border)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, size: 17, color: AppTheme.danger),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(failure.message,
+                    style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                if (failure.hint != null) ...[
+                  const SizedBox(height: 2),
+                  Text(failure.hint!,
+                      style:
+                          TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (showEdit)
+            ToolButton(
+              icon: Icons.edit_outlined,
+              label: 'Edit host',
+              color: AppTheme.accent,
+              onTap: onEditHost!,
+            ),
+          ToolButton(
+            icon: Icons.refresh_rounded,
+            label: 'Coba lagi',
+            onTap: onRetry,
+          ),
+        ],
+      ),
+    );
+  }
+}
