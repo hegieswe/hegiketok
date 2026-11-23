@@ -57,3 +57,6 @@ id_ed25519*
 *.p12
 *.keychain
 secrets/
+
+# Paket rilis hasil scripts/release_macos.sh
+/dist/
