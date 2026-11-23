@@ -60,3 +60,43 @@ secrets/
 
 # Paket rilis hasil scripts/release_macos.sh
 /dist/
+
+# ── Rahasia & data pengguna — JANGAN pernah di-commit ──────────────────────
+# Backup vault terenkripsi dan data host hasil ekspor.
+*.hvault
+hosts.json
+known_hosts.json
+snippets.json
+# Sertifikat, profil, dan kunci penandatanganan (Apple / Android / umum).
+*.cer
+*.p8
+*.pfx
+*.mobileprovision
+*.provisionprofile
+*.jks
+*.keystore
+key.properties
+AuthKey_*.p8
+*.ppk
+id_ecdsa*
+id_dsa*
+*.pub
+# Token & kredensial alat.
+.netrc
+.npmrc
+credentials.json
+service-account*.json
+
+# ── Lingkungan lokal & alat ────────────────────────────────────────────────
+.vscode/
+.claude/
+*.orig
+*.rej
+*.bak
+*~
+Thumbs.db
+xcuserdata/
+*.xcuserstate
+
+# ── Hasil rilis ────────────────────────────────────────────────────────────
+*.dmg
